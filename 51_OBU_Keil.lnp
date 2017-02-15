@@ -1,0 +1,18 @@
+"OBUMAIN.obj",
+"TFT_LCD.obj",
+"TEST.obj",
+"SERIAL.obj",
+"ProCard.obj",
+"NContact.obj",
+"MFCard.obj",
+"LIB.obj",
+"HDLC.obj",
+"GSM.obj",
+"flash.obj",
+"DSRC.obj",
+"Contact.obj",
+"CC1101.obj",
+"CardAPP.obj",
+"C_Issue.obj" 
+TO "51_OBU_Keil" 
+RAMSIZE(256) 

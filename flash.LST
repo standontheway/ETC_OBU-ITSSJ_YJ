@@ -1,0 +1,320 @@
+A51 MACRO ASSEMBLER  FLASH                                                                01/09/2017 10:19:39 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.00d
+OBJECT MODULE PLACED IN flash.OBJ
+ASSEMBLER INVOKED BY: C:\Keil\C51\BIN\A51.EXE flash.ASM SET(SMALL) DEBUG EP
+
+LOC  OBJ            LINE     SOURCE
+
+                       1     NAME    Flash
+                       2             
+                       3     PUBLIC  _rdflash,_rdflashxr
+                       4     PUBLIC  _wrflash,_wrflashxr
+                       5     PUBLIC  _eraseflash
+                       6             
+  00C2                 7     ISP_DATA                EQU     0C2H    ;0e2h
+  00C3                 8     ISP_ADDRH               EQU     0C3H    ;0e3h
+  00C4                 9     ISP_ADDRL               EQU     0C4H    ;0e4h
+  00C5                10     ISP_CMD                 EQU     0C5H    ;0e5h
+  00C6                11     ISP_TRIG                EQU     0C6H    ;0e6h
+  00C7                12     ISP_CONTR               EQU     0C7H    ;0e7h
+                      13             
+  005A                14     Reg_value_ISPTrig01     EQU     05AH
+  00A5                15     Reg_value_ISPTrig02     EQU     0A5H
+                      16             
+  0072                17     Reg_Value_LowAddr       EQU     72H;6eh;61H
+  0074                18     Reg_Value_HighAddr      EQU     74H;70H 
+                      19             
+  0001                20     ISP_byte_read           EQU     01h
+  0002                21     ISP_byte_write          EQU     02h
+  0003                22     ISP_sector_erase        EQU     03h
+  0000                23     wait_time                       EQU     00h
+  0089                24     enable_isp                      EQU     89H     ;81h 80h 1000 0001
+                      25     ;flash_data_start_addr  EQU     02000h
+                      26     extrn code(ap_start)
+                      27     
+                      28             
+                      29             flash           SEGMENT CODE
+----                  30             RSEG            flash
+                      31             
+                      32     ;-------------------------------------------------
+                      33     ;ÃèÊö:¶ÁFlashµ½ÄÚ´æ
+                      34     ;Íâ²¿²ÎÊ:
+                      35     ;       dptr    ---     falshµØÖ·
+                      36     ;       r7      ---     ÄÚ´æµØÖ·
+                      37     ;       r3      ---     ½«Òª¶ÁÈ¡µÄ³¤¶È
+                      38     ;-------------------------------------------------
+0000                  39     _rdflash:
+0000 EB               40             MOV     A,R3
+0001 6015             41             JZ      _rdflash_OVER
+0003 C2AF             42             clr     ea
+0005 EF               43             mov     a,r7
+0006 F8               44             mov     r0,a
+0007 75C789           45             mov     isp_contr,#enable_isp                   ;82h;enable_isp   &   1000 1001
+000A 75C501           46             mov     isp_cmd,#ISP_byte_read
+000D                  47     rdflash_1:
+000D 120000   F       48             call    byte_read
+0010 F6               49             mov     @r0,a
+0011 08               50             inc     r0
+0012 A3               51             inc     dptr
+0013 DBF8             52             djnz    r3,rdflash_1
+0015 120000   F       53             call    iap_disable
+0018                  54     _rdflash_OVER:
+0018 22               55             ret
+                      56     ;-------------------------------------------------
+                      57     ;ÃèÊö:¶Á Flash µ½Íâ´æ
+                      58     ;Íâ²¿²ÎÊ:
+A51 MACRO ASSEMBLER  FLASH                                                                01/09/2017 10:19:39 PAGE     2
+
+                      59     ;       dptr    ---     falsh µØÖ·    
+                      60     ;       r7      ---     Íâ´æµØÖ·
+                      61     ;       r3      ---     ½«Òª¶ÁÈ¡µÄ³¤¶È
+                      62     ;-------------------------------------------------
+0019                  63     _rdflashxr:
+                      64             
+0019 EB               65             MOV     A,R3
+001A 6022             66             JZ      _rdflashxr_OVER
+001C C2AF             67             clr     ea
+001E EF               68             mov     a,r7
+001F F8               69             mov     r0,a
+0020 75C789           70             mov     isp_contr,#enable_isp
+0023 75C501           71             mov     isp_cmd,#ISP_byte_read
+0026                  72     rdflashxr_1:    
+0026 120000   F       73             call    byte_read
+                      74             ;movx   @r0,a
+0029 C083             75             push    dph
+002B C082             76             push    dpl
+002D 758301           77             MOV     DPH,#1 
+0030 8882             78             MOV     DPL,R0 
+0032 F0               79             MOVX    @DPTR,A 
+0033 D082             80             pop     dpl
+0035 D083             81             pop     dph
+0037 08               82             inc     r0
+                      83             
+                      84     
+0038 A3               85             inc     dptr
+0039 DBEB             86             djnz    r3,rdflashxr_1
+003B 120000   F       87             call    iap_disable
+003E                  88     _rdflashxr_OVER:
+                      89             
+003E 22               90             ret
+                      91     ;-------------------------------------------------
+                      92     ;ÃèÊö:Ð´Flashµ½ÄÚ´æ
+                      93     ;Íâ²¿²ÎÊ:
+                      94     ;       dptr    ---     falshµØÖ·    
+                      95     ;       r7      ---     ÄÚ´æµØÖ·   
+                      96     ;       r3      ---     ½«ÒªÐ´µÄ³¤¶È
+                      97     ;-------------------------------------------------
+003F                  98     _wrflash:
+                      99             
+003F E583            100             mov     a,dph
+0041 B47200          101             cjne    a,#Reg_Value_LowAddr,$+3                ;cjne   a,#2EH,$+3
+0044 5003            102             jnc     _wrflashStart
+0046                 103     _wrflashStart_err:
+                     104             ;---orl pcon,#02h
+0046 020000   F      105             jmp     ap_start
+0049                 106     _wrflashStart:  
+0049 B47400          107             cjne    a,#Reg_Value_HighAddr,$+3               ;cjne   a,#30h,$+3
+004C 50F8            108             jnc     _wrflashStart_err
+004E EB              109             MOV     A,R3
+004F 6015            110             JZ      _wrflash_OVER
+0051 C2AF            111             clr     ea
+0053 EF              112             mov     a,r7
+0054 F8              113             mov     r0,a
+0055 75C789          114             mov     isp_contr,#enable_isp
+0058 75C502          115             mov     isp_cmd,#ISP_byte_write
+005B                 116     wrflash_1:
+005B E6              117             mov     a,@r0
+005C 08              118             inc     r0
+005D 120000   F      119             call    byte_write
+0060 A3              120             inc     dptr
+0061 DBF8            121             djnz    r3,Wrflash_1
+0063 120000   F      122             call    iap_disable
+0066                 123     _wrflash_OVER:
+                     124             
+A51 MACRO ASSEMBLER  FLASH                                                                01/09/2017 10:19:39 PAGE     3
+
+0066 22              125             ret
+                     126     ;-------------------------------------------------
+                     127     ;ÃèÊö:Ð´Flashµ½Íâ´æ
+                     128     ;Íâ²¿²ÎÊ:
+                     129     ;       dptr    ---     falshµØÖ·    
+                     130     ;       r7      ---     Íâ´æµØÖ·   
+                     131     ;       r3      ---     ½«ÒªÐ´µÄ³¤¶È
+                     132     ;-------------------------------------------------
+0067                 133     _wrflashxr:
+                     134             
+0067 E583            135             mov     a,dph
+0069 B47200          136             cjne    a,#Reg_Value_LowAddr,$+3                ;cjne   a,#2EH,$+3
+006C 5003            137             jnc     _wrflashxrStart
+006E                 138     _wrflashxrStart_err:
+                     139             ;orl    pcon,#02h
+006E 020000   F      140             jmp     ap_start
+0071                 141     _wrflashxrStart:        
+0071 B47400          142             cjne    a,#Reg_Value_HighAddr,$+3               ;cjne   a,#30h,$+3
+0074 50F8            143             jnc     _wrflashxrStart_err
+0076 EB              144             MOV     A,R3
+0077 6022            145             JZ      _wrflashxr_OVER
+0079 C2AF            146             clr     ea
+007B EF              147             mov     a,r7
+007C F8              148             mov     r0,a
+007D 75C789          149             mov     isp_contr,#enable_isp
+0080 75C502          150             mov     isp_cmd,#ISP_byte_write
+0083                 151     wrflashxr_1:
+                     152             ;movx   A,@r0
+0083 C082            153             push    dpl
+0085 C083            154             push    dph
+0087 758301          155             MOV     DPH,#1
+008A 8882            156             MOV     DPL,R0
+008C E0              157             MOVX    A,@DPTR 
+008D D083            158             pop     dph
+008F D082            159             pop     dpl
+                     160             
+0091 08              161             inc     R0
+0092 120000   F      162             call    byte_write
+0095 A3              163             inc     dptr
+0096 DBEB            164             djnz    r3,Wrflashxr_1
+0098 120000   F      165             call    iap_disable
+009B                 166     _wrflashxr_OVER:
+                     167             
+009B 22              168             ret
+                     169     
+                     170     ;-------------------------------------------------
+                     171     ;ÃèÊö:²Á³Flash
+                     172     ;Íâ²¿²ÎÊ:
+                     173     ;       dptr    ---     falshµØÖ·    
+                     174     ;       r3      ---     ½«Òª²Á³µÄ³¤¶È
+                     175     ;-------------------------------------------------
+009C                 176     _eraseflash:
+009C EB              177             MOV     A,R3
+009D 6005            178             JZ      _eraseflashStart2
+009F B40300          179             cjne    A,#3,$+3
+00A2 4003            180             jc      _eraseflashStart1
+00A4                 181     _eraseflashStart2:      
+                     182             ;---orl pcon,#02h
+00A4 020000   F      183             jmp     ap_start
+00A7                 184     _eraseflashStart1:      
+00A7 C2AF            185             clr     ea
+00A9 75C789          186             mov     isp_contr,#enable_isp
+00AC 75C503          187             mov     isp_cmd,#ISP_sector_erase
+00AF E583            188             mov     a,dph
+00B1                 189     eraseflash_1:
+00B1 B47200          190             cjne    a,#Reg_Value_LowAddr,$+3                ;cjne   a,#2EH,$+3
+A51 MACRO ASSEMBLER  FLASH                                                                01/09/2017 10:19:39 PAGE     4
+
+00B4 5003            191             jnc     _eraseflashStart
+00B6                 192     _eraseflashStart_err:
+                     193             ;---orl pcon,#02h
+00B6 020000   F      194             jmp     ap_start
+00B9                 195     _eraseflashStart:       
+00B9 B47400          196             cjne    a,#Reg_Value_HighAddr,$+3               ;cjne   a,#30h,$+3
+00BC 50F8            197             jnc     _eraseflashStart_err
+                     198     
+00BE 120000   F      199             call    sector_erase
+00C1 E583            200             mov     a,dph
+00C3 04              201             inc     a
+00C4 04              202             inc     a
+00C5 F583            203             mov     dph,a
+00C7 DBE8            204             djnz    r3,eraseflash_1
+00C9 120000   F      205             call    iap_disable
+00CC                 206     _eraseflash_OVER:
+00CC 22              207             ret
+                     208     ;-------------------------------------------------
+                     209     ;¶Á×Ö½Ú
+                     210     ;-------------------------------------------------
+00CD                 211     byte_read:
+00CD 8583C3          212             mov isp_addrh,dph
+00D0 8582C4          213             mov isp_addrl,dpl
+00D3 75C65A          214             mov isp_trig,#Reg_value_ISPTrig01
+00D6 75C6A5          215             mov isp_trig,#Reg_value_ISPTrig02
+00D9 E5C2            216             mov a,isp_data
+00DB 22              217             ret
+                     218     ;-------------------------------------------------
+                     219     ;Ð´×Ö½Ú
+                     220     ;-------------------------------------------------
+00DC                 221     byte_write:
+00DC 8583C3          222             mov isp_addrh,dph
+00DF 8582C4          223             mov isp_addrl,dpl
+00E2 F5C2            224             mov isp_data,a
+00E4 75C65A          225             mov isp_trig,#Reg_value_ISPTrig01
+00E7 75C6A5          226             mov isp_trig,#Reg_value_ISPTrig02
+00EA 22              227             ret
+                     228             
+00EB                 229     sector_erase:
+00EB 8583C3          230             mov isp_addrh,dph
+00EE 8582C4          231             mov isp_addrl,dpl
+00F1 75C65A          232             mov isp_trig,#Reg_value_ISPTrig01
+00F4 75C6A5          233             mov isp_trig,#Reg_value_ISPTrig02
+00F7 22              234             ret
+                     235             
+00F8                 236     iap_disable:
+00F8 75C700          237             mov isp_contr,#0
+00FB 75C500          238             mov isp_cmd,#0
+00FE 75C600          239             mov isp_trig,#0
+0101 75C300          240             mov isp_addrh,#0
+0104 75C400          241             mov isp_addrl,#0
+0107 22              242             ret
+                     243                     
+                     244             END
+A51 MACRO ASSEMBLER  FLASH                                                                01/09/2017 10:19:39 PAGE     5
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E               T Y P E  V A L U E   ATTRIBUTES
+
+AP_START . . . . . .  C ADDR   -----       EXT
+BYTE_READ. . . . . .  C ADDR   00CDH   R   SEG=FLASH
+BYTE_WRITE . . . . .  C ADDR   00DCH   R   SEG=FLASH
+DPH. . . . . . . . .  D ADDR   0083H   A   
+DPL. . . . . . . . .  D ADDR   0082H   A   
+EA . . . . . . . . .  B ADDR   00A8H.7 A   
+ENABLE_ISP . . . . .  N NUMB   0089H   A   
+ERASEFLASH_1 . . . .  C ADDR   00B1H   R   SEG=FLASH
+FLASH. . . . . . . .  C SEG    0108H       REL=UNIT
+IAP_DISABLE. . . . .  C ADDR   00F8H   R   SEG=FLASH
+ISP_ADDRH. . . . . .  N NUMB   00C3H   A   
+ISP_ADDRL. . . . . .  N NUMB   00C4H   A   
+ISP_BYTE_READ. . . .  N NUMB   0001H   A   
+ISP_BYTE_WRITE . . .  N NUMB   0002H   A   
+ISP_CMD. . . . . . .  N NUMB   00C5H   A   
+ISP_CONTR. . . . . .  N NUMB   00C7H   A   
+ISP_DATA . . . . . .  N NUMB   00C2H   A   
+ISP_SECTOR_ERASE . .  N NUMB   0003H   A   
+ISP_TRIG . . . . . .  N NUMB   00C6H   A   
+RDFLASHXR_1. . . . .  C ADDR   0026H   R   SEG=FLASH
+RDFLASH_1. . . . . .  C ADDR   000DH   R   SEG=FLASH
+REG_VALUE_HIGHADDR .  N NUMB   0074H   A   
+REG_VALUE_ISPTRIG01.  N NUMB   005AH   A   
+REG_VALUE_ISPTRIG02.  N NUMB   00A5H   A   
+REG_VALUE_LOWADDR. .  N NUMB   0072H   A   
+SECTOR_ERASE . . . .  C ADDR   00EBH   R   SEG=FLASH
+WAIT_TIME. . . . . .  N NUMB   0000H   A   
+WRFLASHXR_1. . . . .  C ADDR   0083H   R   SEG=FLASH
+WRFLASH_1. . . . . .  C ADDR   005BH   R   SEG=FLASH
+_ERASEFLASH. . . . .  C ADDR   009CH   R   SEG=FLASH
+_ERASEFLASHSTART . .  C ADDR   00B9H   R   SEG=FLASH
+_ERASEFLASHSTART1. .  C ADDR   00A7H   R   SEG=FLASH
+_ERASEFLASHSTART2. .  C ADDR   00A4H   R   SEG=FLASH
+_ERASEFLASHSTART_ERR  C ADDR   00B6H   R   SEG=FLASH
+_ERASEFLASH_OVER . .  C ADDR   00CCH   R   SEG=FLASH
+_RDFLASH . . . . . .  C ADDR   0000H   R   SEG=FLASH
+_RDFLASHXR . . . . .  C ADDR   0019H   R   SEG=FLASH
+_RDFLASHXR_OVER. . .  C ADDR   003EH   R   SEG=FLASH
+_RDFLASH_OVER. . . .  C ADDR   0018H   R   SEG=FLASH
+_WRFLASH . . . . . .  C ADDR   003FH   R   SEG=FLASH
+_WRFLASHSTART. . . .  C ADDR   0049H   R   SEG=FLASH
+_WRFLASHSTART_ERR. .  C ADDR   0046H   R   SEG=FLASH
+_WRFLASHXR . . . . .  C ADDR   0067H   R   SEG=FLASH
+_WRFLASHXRSTART. . .  C ADDR   0071H   R   SEG=FLASH
+_WRFLASHXRSTART_ERR.  C ADDR   006EH   R   SEG=FLASH
+_WRFLASHXR_OVER. . .  C ADDR   009BH   R   SEG=FLASH
+_WRFLASH_OVER. . . .  C ADDR   0066H   R   SEG=FLASH
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)

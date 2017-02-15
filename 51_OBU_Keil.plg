@@ -1,0 +1,15 @@
+<html>
+<body>
+<pre>
+<h1>礦ision3 Build Log</h1>
+<h2>Project:</h2>
+E:\xj_workstaion\ETC\OBU\Soft\专项程序\ITS送检定型程序\yj\[OBUCX_GD_161009_01][单个][物理层]\OBU_Pro.uv2
+Project File Date:  09/23/2016
+
+<h2>Output:</h2>
+Build target 'OBU_Pro'
+assembling OBUMAIN.ASM...
+linking...
+Program Size: data=256.0 xdata=256 code=30377
+creating hex file from "51_OBU_Keil"...
+"51_OBU_Keil" - 0 Error(s), 0 Warning(s).

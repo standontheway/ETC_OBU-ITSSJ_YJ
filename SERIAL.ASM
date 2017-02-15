@@ -1,0 +1,1632 @@
+;**********************************************************************
+;描述：串口操作程序集
+;函数申明
+;_FUN_SERIAL_CHANGEBAUD		---	设置波特率
+
+;软串口函数
+;_FUN_SERIAL_BITSPACEHALF_12	---	延时半位间距(减少8脉冲给调用程序用)
+;_FUN_SERIAL_BITSPACEFULL_8	---	延时一位间距(减少8脉冲给调用程序用)
+;_FUN_SERIAL_BITSPACEFULL_12	---	延时一位间距(减少12脉冲给调用程序用)
+;_FUN_SERIAL_BITSPACEFULL_20	---	延时一位间距(减少20脉冲给调用程序用)
+;_FUN_SERIAL_BITSPACEFULL_28	---	延时一位间距(减少28脉冲给调用程序用)
+
+;_FUN_SERIAL_ESAMTXBYTE		---	软串口发送单个字节的数据[ESAM]
+;_FUN_SERIAL_USERCARDTXBYTE	---	软串口发送单个字节的数据[USER CARD]
+
+;_FUN_SERIAL_TXSOFT		---	软串口发送数据
+;_FUN_SERIAL_RXSBYTE		---	软串口接收单个字节的数据
+;_FUN_SERIAL_RXSOFT		---	软串口接收数据
+
+;硬串口函数
+;_FUN_SERIAL_INIT		---	串口相关寄存器初始化
+;_FUN_SERIAL_RXTXINTERRUPT	---	硬串口发送中断处理程序
+;_FUN_SERIAL_TXHARD		---	硬串口发送数据
+;_FUN_SERIAL_RXHARD		---	硬串口接收数据
+;_FUN_SERIAL_RXHBYTE		---	硬串口接收单个字节的数据
+;备注:
+;设置软串口波特率要设置三个参数
+;	1. BIT_9600		---	当前是否是9600的波特率
+;	2. DATA_VARBAUDFULL	---	一位的宽(晶振/波特率/4)
+;	3. DATA_VARBAUDHALF	---	半位的宽(晶振/波特率/4/2)
+;设置硬串口波特率要设置三个参数
+;	MOV	TH1,A
+;	MOV	TL1,A
+;**********************************************************************
+NAME	SERIAL
+	
+$INCLUDE(SERIAL.INC)
+$INCLUDE(COMMON.INC)
+	
+	RSEG	?pr?SERIAL?Mater
+	USING	0
+	
+;---------------------------------------------------------
+;描述:串口相关寄存器初始化
+;外部参数(无) Init_Value = (晶振*2)/(32*12*波特率)
+;R7			---	波特率初值
+;BIT_VERIFY		---	串口收发是否要加验位,=0不要，=1要
+;---------------------------------------------------------
+_FUN_SERIAL_INIT:
+	
+	MOV	A,R7	
+	;--- 定时器寄存器 ---
+	;MOV	REG_5412AD_AUXR,#040H		;
+	;MOV	REG_5412AD_AUXR,#01000000B	;	
+	PUSH	ACC
+	CLR	A
+	
+	ORL	A,#00010000B			;使能BRT
+	ORL	A,#00000100B			;BRT 单时钟周期
+	ORL	A,#01000001B			;BRT作为串口1的波特率发生器
+	MOV	REG_5412AD_AUXR,A		;
+	POP	ACC
+	
+	ANL	TMOD,#0FH			;GATE=0,C/T=0,M1=1,M0=0[T1] , GATE=XX,C/T=XX,M1=XX,M0=XX[T0]常数载入
+	ORL	TMOD,#20H			;01:设置t0为16位定时器,20h:设置t1为8位重装载定时器
+	
+	;MOV	TH1,A
+	;MOV	TL1,A
+	MOV	Reg_Sys_BRT,A			;#243
+	
+	;3f	00111111
+	;40	01000000
+	;ANL	TCON,#3FH			;TF1 = 0,TR1 = 1,TF0 = XX,TR0 = XX	定时器1使能	
+	;ORL	TCON,#40H
+	
+	;--- 串口 寄存器 ---
+	JNB	BIT_VERIFY,SERIAL_INIT_NINE
+	;MOV	SCON,#0C0H			;SM0=1,SM1=1,SM2=0,REN=0,TB8=0,RB8=0,TI=0,RI=0 工作方式三，11位UART
+	MOV	SCON,#11000000B			;SM0=1,SM1=1,SM2=0,REN=0,TB8=0,RB8=0,TI=0,RI=0 工作方式三，11位UART
+	JMP	SERIAL_INIT_NINEOVER		;XXX
+	
+SERIAL_INIT_NINE:				;YYY
+	;MOV	SCON,#040H			;SM0=1,SM1=1,SM2=0,REN=0,TB8=0,RB8=0,TI=0,RI=0 工作方式三，11位UART
+	MOV	SCON,#01000000B			;SM0=1,SM1=1,SM2=0,REN=0,TB8=0,RB8=0,TI=0,RI=0 工作方式三，11位UART
+SERIAL_INIT_NINEOVER:				;
+	MOV	PCON,#80H			;SMOD=1,加速
+	
+	;--- 中断寄存器 ---			;
+	CLR	RI				;
+	CLR	TI				;		
+	
+	RET
+;---------------------------------------------------------
+;描述:延时半位的间距,减少 12 脉冲给调用程序修改
+;外部参数(无)
+;---------------------------------------------------------
+_FUN_SERIAL_BITSPACEHALF_12:					;CALL 6
+	PUSH	AR0						;4
+	PUSH	ACC						;4
+
+	MOV	R0,#DATA_VARBAUDHALF				;2
+	MOV	A,@R0						;2
+	CLR	C						;1
+	SUBB	A,#CONST_BAUD_BITHALF12				;3	
+	NOP							;1
+	NOP							;1
+
+	MOV	R7,A						;2
+	POP	ACC						;3
+	POP	AR0						;3
+	
+	DJNZ	R7,$						;4 * 74 + 6+ 2 + 4 = 308
+	
+	JNB	BIT_9600,SERIAL_BITSPACEHALF_12_OVER		;4
+	MOV	R7,#99
+	NOP
+	NOP
+	DJNZ	R7,$
+
+SERIAL_BITSPACEHALF_12_OVER:	
+
+	RET							;4
+
+;---------------------------------------------------------
+;描述:延时一位的间距,减少8脉冲给调用程序修改
+;外部参数(无)
+;---------------------------------------------------------
+_FUN_SERIAL_BITSPACEFULL_8:					;CALL 6	
+
+	PUSH	AR0						;4
+	PUSH	ACC						;4
+	MOV	R0,#DATA_VARBAUDFULL				;2
+	MOV	A,@R0						;2
+	CLR	C						;1
+	SUBB	A,#CONST_BAUD_BITFULL8				;3
+	NOP							;1
+	NOP							;1
+
+	MOV	R7,A						;2
+	POP	ACC						;3
+	POP	AR0						;3
+	
+	DJNZ	R7,$						;157 + 6 + 2 + 4 = 640
+	JNB	BIT_9600,SERIAL_BITSPACEFULL_8_OVER		;4
+	MOV	R7,#199
+	NOP
+	NOP
+	DJNZ	R7,$
+	
+SERIAL_BITSPACEFULL_8_OVER:	
+
+	RET							;4
+
+;---------------------------------------------------------
+;描述:延时一位的间距,减少12脉冲给调用程序修改
+;外部参数(无)
+;---------------------------------------------------------
+_FUN_SERIAL_BITSPACEFULL_12:					;CALL 6	
+	PUSH	AR0
+	PUSH	ACC
+	MOV	R0,#DATA_VARBAUDFULL				;2
+	MOV	A,@R0						;2
+	CLR	C						;1
+	SUBB	A,#CONST_BAUD_BITFULL12				;3
+	NOP
+	NOP
+
+	MOV	R7,A			;2
+	POP	ACC
+	POP	AR0
+	DJNZ	R7,$						;4 * 157 + 6 + 2 + 4 = 640
+
+	JNB	BIT_9600,SERIAL_BITSPACEFULL_12_OVER		;4
+	MOV	R7,#199
+	NOP
+	NOP
+	DJNZ	R7,$
+SERIAL_BITSPACEFULL_12_OVER:
+
+	RET							;4	
+
+;---------------------------------------------------------
+;描述:延时一位的间距，减少20脉冲给调用程序修改
+;外部参数(无)
+;---------------------------------------------------------
+_FUN_SERIAL_BITSPACEFULL_20:					;CALL 6	
+	PUSH	AR0
+	PUSH	ACC
+	MOV	R0,#DATA_VARBAUDFULL				;2
+	MOV	A,@R0						;2
+	CLR	C						;1
+	SUBB	A,#CONST_BAUD_BITFULL20				;3
+	NOP	
+	NOP
+
+	MOV	R7,A			;2
+	POP	ACC
+	POP	AR0
+
+	DJNZ	R7,$						;4 * 157 + 6 + 2 + 4 = 640
+
+	JNB	BIT_9600,SERIAL_BITSPACEFULL_20_OVER		;4
+	MOV	R7,#199
+	NOP
+	NOP
+	DJNZ	R7,$
+	
+SERIAL_BITSPACEFULL_20_OVER:
+
+
+	RET							;4		
+
+;---------------------------------------------------------
+;描述:延时一位的间距，减少28脉冲给调用程序修改
+;外部参数(无)
+;---------------------------------------------------------
+_FUN_SERIAL_BITSPACEFULL_28:					;CALL 6	
+	PUSH	AR0
+	PUSH	ACC
+	MOV	R0,#DATA_VARBAUDFULL				;2
+	MOV	A,@R0						;2
+	CLR	C						;1
+	SUBB	A,#CONST_BAUD_BITFULL28				;3
+	NOP
+	NOP
+
+	MOV	R7,A						;2,
+	POP	ACC
+	POP	AR0
+
+	DJNZ	R7,$						;4 * 150 + 6 + 2 + 4 = 612
+
+	JNB	BIT_9600,SERIAL_BITSPACEFULL_28_OVER		;4
+	MOV	R7,#199
+	NOP
+	NOP
+	DJNZ	R7,$
+
+SERIAL_BITSPACEFULL_28_OVER:	
+
+	RET							;4		
+
+;---------------------------------------------------------
+;描述:软串口发送单个字节的数据
+;外部参数
+;PIN_SOFTSERIAL	---	发送引脚
+;BIT_VERIFY	---	串口收发是否要加验位,=0不要，=1要
+;r7		---	将要发送数据
+;内部参数
+;r1		---	位长度
+;---------------------------------------------------------
+_FUN_SERIAL_USERCARDTXBYTE:;(7,4)
+	ret
+	
+	;---CLR	PIN_SOFTSERIALTX				;1	启始位	
+	MOV	A,R7						;1 (误差1个脉冲)
+	CALL	_FUN_SERIAL_BITSPACEFULL_12			;用 16
+								;
+ 	JNB	BIT_VERIFY,SERIAL_TXBYTE_USERCARDVERIFY		;4
+	MOV	C,P						;2
+	MOV	R1,#9						;2
+	JMP	SERIAL_TXBYTE_USERCARDLOOP			;4
+SERIAL_TXBYTE_USERCARDVERIFY:					;
+	MOV	R1,#8						;2
+	NOP							;
+	NOP							;
+	NOP	
+	NOP	
+	NOP	
+	NOP	
+SERIAL_TXBYTE_USERCARDLOOP:					;
+	RRC	A						;1
+	;---MOV	PIN_SOFTSERIALTX,C				;3
+	CALL	_FUN_SERIAL_BITSPACEFULL_8			;
+	DJNZ	R1,SERIAL_TXBYTE_USERCARDLOOP			;4
+								;
+	NOP							;1
+	NOP							;1
+	NOP							;1
+	;---SETB	PIN_SOFTSERIALTX				;1	停止位
+	CALL	_FUN_SERIAL_BITSPACEFULL_28			;
+
+	RET							;4
+;///////////////////////////////////////////////////////////////////////////
+_FUN_SERIAL_ESAMTXBYTE:	
+	
+	;CLR	PIN_ESAM_TX					;1		
+	CLR	PIN_SOFTSERIALRX				;
+	MOV	A,R7						;1 (误差1个周期)
+	;---CALL	_FUN_SERIAL_BITSPACEFULL_12		;
+	;CALL	_FUN_LIB_DELAY110;(127-17=110)			;
+	CALL	_FUN_LIB_DELAY197				;
+ 	JNB	BIT_VERIFY,SERIAL_TXBYTE_ESAMVERIFY		;4
+	MOV	C,P						;2
+	MOV	R1,#9						;2
+	
+	JMP	SERIAL_TXBYTE_ESAMLOOP				;4
+SERIAL_TXBYTE_ESAMVERIFY:					;
+	MOV	R1,#8						;2
+	NOP							;
+	NOP							;
+	NOP	
+	NOP	
+	NOP	
+	NOP	
+SERIAL_TXBYTE_ESAMLOOP:						;
+	RRC	A						;1
+	;MOV	PIN_ESAM_TX,C					;3
+	MOV	PIN_SOFTSERIALRX,C
+	;---CALL	_FUN_SERIAL_BITSPACEFULL_8			;
+	;CALL	_FUN_LIB_DELAY119;(127-8=119)	[213-8=205]	
+	CALL	_FUN_LIB_DELAY205;(127-8=119)	[213-8=205]	
+	DJNZ	R1,SERIAL_TXBYTE_ESAMLOOP			;4
+								;
+	NOP							;1
+	NOP							;1
+	NOP							;1
+	;SETB	PIN_ESAM_TX					;1
+	SETB	PIN_SOFTSERIALRX
+	;----CALL	_FUN_SERIAL_BITSPACEFULL_28		;
+	;CALL	_FUN_LIB_DELAY119				;(127-28 = 99)	
+	call	_FUN_LIB_DELAY205
+	RET							;4
+						;4
+
+;---------------------------------------------------------
+;描述:软串口发送数据(字符串)
+;外部参数
+;PIN_SOFTSERIAL	---	发送引脚
+;BIT_BUFADDR	---	=0，发送的是内存数据；=1，发送的是外存数据
+;BIT_VERIFY	---	串口收发是否要加验位,=0不要，=1要
+
+;R7		---	将要发送数据的buf
+;R5		---	字节间的延时间0~255
+;R3		---	发送数据的长度
+;---------------------------------------------------------
+_FUN_SERIAL_TXSOFT:
+	MOV	AR0,AR7								;4
+	;---ESAM---
+SERIAL_TXSOFT_ESAMLOOP:
+	MOV	A,R5								;2
+	MOV	R7,A								;2
+	CALL	_FUN_LIB_DELAYSIMPLAY
+	JB	BIT_BUFADDR,SERIAL_ESAMTXSOFTMOVX				;4
+	MOV	A,@R0								;2
+	JMP	SERIAL_ESAMTXSOFTMOVOVER					;4
+SERIAL_ESAMTXSOFTMOVX:	
+		;MOVX	A,@R0
+	MOV	DPH,#1
+	MOV	DPL,R0
+	MOVX	A,@DPTR								;3
+	NOP									;
+	NOP									;
+	NOP
+SERIAL_ESAMTXSOFTMOVOVER:
+	MOV	R7,A								;2
+	CALL	_FUN_SERIAL_ESAMTXBYTE						;6
+	INC	R0								;3
+	DJNZ	R3,SERIAL_TXSOFT_ESAMLOOP					;4
+	
+	MOV	R7,#0								;
+;	JMP	SERIAL_TXSOFT_OVER
+
+SERIAL_TXSOFT_OVER:
+
+	RET									;4
+	
+;---------------------------------------------------------
+;描述:软串口接收单个字节的数据
+;外部参数
+;PIN_SOFTSERIALR	---	接收引脚
+;BIT_SERIALOVERTIMERX	---	串口等待接收是否有时间,限制=0没有限制;=1有时间限制
+;BIT_VERIFY		---	串口收发是否要加验位,=0不要，=1要
+;BIT_SERFIRBYTE		---	=1 启用长超时接收（用于接收卡片第一个字节返回）,启用短超时接收(用于接收卡片第一个之后的字节返回)
+;内部参数
+;R7			---	返回接收状态码
+;A			---	返回接收数据
+;R1			---	暂存单元
+;R0			---	暂存单元
+;调用子函数
+;_FUN_SERIAL_BITSPACEHALF_12
+;_FUN_SERIAL_BITSPACEFULL_8
+;115200 一个位的由来 (24576000 /115200 *3.58)/6 = 127
+;-------------------------------------------------------------
+_FUN_SERIAL_RXSBYTE:;(14,6)							;6
+ 	
+ 	;--- 判断一开始如果为[低电平()]就报错 ---
+	JB	PIN_ESAM_RX,SERIAL_RXBYTE_START					;4	
+	MOV	R7,#CONST_STATE_SERIALACCPET					;2	
+	JMP	SERIAL_RXBYTE_OVER						;4	
+	
+SERIAL_RXBYTE_START:
+	JNB	BIT_SERIALOVERTIMERX,SERIAL_RXBYTE_SEARCHSTARTLIMITLESS		;无限等待接收
+	
+	JNB	BIT_SERFIRBYTE,SERIAL_RXBYTE_SECONDBYTE
+	CLR	BIT_SERFIRBYTE	
+	;--- 有限时间内搜索串口起启位 ---
+	;在24.576M下串口第一个字节设定为要检索100MS = 2456700/(FF*FF) = 38=26H
+	MOV	R0,#XDATA_SOFTFIRSTSCANTIME
+		;MOVX	A,@R0
+	MOV	DPH,#1
+	MOV	DPL,R0
+	MOVX	A,@DPTR
+	MOV	R0,A
+	;MOV	R0,#255
+	;~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	;mov	A,#11
+	;JMP	_FUN_TEST_DISPLAY
+	;~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	;MOV	R0,#CONST_SOFTFIRSTSCANTIME								;			
+	MOV	R1,#0FFH							;2
+	MOV	R2,#0FFH							;2			
+SERIAL_RXBYTE_SEARCHSTARTLIMITE:						
+	JNB	PIN_ESAM_RX,SERIAL_RXBYTE_BYTE					;4			
+	DJNZ	R2,SERIAL_RXBYTE_SEARCHSTARTLIMITE				;4				
+	DJNZ	R1,SERIAL_RXBYTE_SEARCHSTARTLIMITE				;4			
+	DJNZ	R0,SERIAL_RXBYTE_SEARCHSTARTLIMITE				;4	
+	;~~~~~~~~~~~~~~~~~~~~~~~
+	;CALL	_FUN_TEST_BEEP
+	;~~~~~~~~~~~~~~~~~~~~~~~	
+	JMP	SERIAL_RXBYTE_STARTOVERTIME	
+	
+SERIAL_RXBYTE_SECONDBYTE:
+	;--- 有限时间内搜索串口起启位 ---
+	MOV	R0,#CONST_SOFTSECOND						;2			
+	MOV	R1,#0FFH							;2
+SERIAL_RXBYTE_SEARCHSECONDLIMITE:						
+	JNB	PIN_ESAM_RX,SERIAL_RXBYTE_BYTE					;4			
+	DJNZ	R1,SERIAL_RXBYTE_SEARCHSECONDLIMITE				;4			
+	DJNZ	R0,SERIAL_RXBYTE_SEARCHSECONDLIMITE				;4			
+	
+	;~~~~~~~~~~~~~~~~~~~~~~~
+	;CALL	_FUN_TEST_BEEP
+	;~~~~~~~~~~~~~~~~~~~~~~~
+
+SERIAL_RXBYTE_STARTOVERTIME:							
+	MOV	R7,#CONST_STATE_SERIALOVERTIME					;2串口接收超时	
+	JMP	SERIAL_RXBYTE_OVER						;4
+
+	;--- 有限时间内搜索串口起启位 ---					
+SERIAL_RXBYTE_SEARCHSTARTLIMITLESS:
+	JB	PIN_ESAM_RX,SERIAL_RXBYTE_SEARCHSTARTLIMITLESS			;4  ;无限等待接收
+
+	;--- 开始接收数据 ---
+SERIAL_RXBYTE_BYTE:;4
+ 	;---CALL	_FUN_SERIAL_BITSPACEHALF_12				;延时半位
+ 	CALL	_FUN_LIB_DELAY52						;64-12=52
+ 	NOP									;1
+ 	NOP									;1
+	JNB	PIN_ESAM_RX,SERIAL_RXBYTE_ACCEPTBYTE				;4为低则继续执行，为高则报错
+;-------
+	MOV	R7,#CONST_STATE_ACCEPTOVER					;2 接收出错
+	
+	NOP									;1
+	JMP	SERIAL_RXBYTE_OVER						;4 退出接收程序
+	
+SERIAL_RXBYTE_ACCEPTBYTE:							;
+	MOV	A,#80H								;2
+	NOP									;1
+	NOP									;1
+SERIAL_RXBYTE_ACCEPTBYTELOOP:
+	;---CALL	_FUN_SERIAL_BITSPACEFULL_8				;延时一位	
+	CALL	_FUN_LIB_DELAY119						;127-8=119	
+	
+	NOP									;1	
+	MOV	C,PIN_ESAM_RX							;3
+;-------
+	RRC	A								;1
+	JNC	SERIAL_RXBYTE_ACCEPTBYTELOOP					;3
+
+	;--- 是否有检验位 ---
+	JNB	BIT_VERIFY,SERIAL_RXBYTE_STOP					;4
+	;---CALL	_FUN_SERIAL_BITSPACEFULL_12				;延时一位
+	CALL	_FUN_LIB_DELAY113						;127-13=114		
+	NOP									;1
+	NOP	
+	MOV	C,PIN_ESAM_RX							;3
+;-------
+	JB	P,SERIAL_RXBYTE_VERIFY						;4	
+;P = Low
+	MOV	P,C								;2
+	JB	P,SERIAL_RXBYTE_VERIFYER					;4
+	JMP	SERIAL_RXBYTE_STOPVERIFY					;4
+SERIAL_RXBYTE_VERIFY:
+;P = High
+	MOV	P,C	
+	
+	NOP
+	NOP
+	NOP
+	NOP
+	
+	JB	P,SERIAL_RXBYTE_STOPVERIFY					;4	
+	
+	;接收到的检验位出错
+SERIAL_RXBYTE_VERIFYER:		
+ 	;---CALL	_FUN_SERIAL_BITSPACEFULL_12				;延时一位
+	;---CALL	_FUN_LIB_DELAY115						;127-12=115		 	
+ 	;---JB	PIN_ESAM_RX,SERIAL_RXBYTE_SUCCEED				;4	判断停止位是否为高
+	;---JMP	SERIAL_RXBYTE_STOPER						;4
+ 	MOV	R7,#CONST_STATE_SERIALACCPET
+ 	JMP	SERIAL_RXBYTE_OVER	
+
+	;接收到的检验位成功
+SERIAL_RXBYTE_STOPVERIFY:
+ 	;---CALL	_FUN_SERIAL_BITSPACEFULL_20				;延时一位
+	;判断停止位是否为高
+	;---CALL	_FUN_LIB_DELAY107					;127-20=107		 	
+	CALL	_FUN_LIB_DELAY54
+ 	JB	PIN_ESAM_RX,SERIAL_RXBYTE_SUCCEED				;4	判断停止位是否为高	
+	CALL	_FUN_LIB_DELAY20
+ 	JB	PIN_ESAM_RX,SERIAL_RXBYTE_SUCCEED				;4	判断停止位是否为高
+	CALL	_FUN_LIB_DELAY20
+ 	JB	PIN_ESAM_RX,SERIAL_RXBYTE_SUCCEED				;4	判断停止位是否为高
+ 	JMP	SERIAL_RXBYTE_STOPER
+
+	;无检验返回
+SERIAL_RXBYTE_STOP:
+ 	;---CALL	_FUN_SERIAL_BITSPACEFULL_12				;延时一位
+	;CALL	_FUN_LIB_DELAY115						;127-12=115	
+	;为了给上层调用留下足够的时间，停止位采样点，设在停止位起启在10个周期
+	; 64-12+10=62 
+	CALL	_FUN_LIB_DELAY62
+	;CALL	_FUN_LIB_DELAY53
+ 	JB	PIN_ESAM_RX,SERIAL_RXBYTE_SUCCEED				;4	判断停止位是否为高
+	CALL	_FUN_LIB_DELAY20
+ 	JB	PIN_ESAM_RX,SERIAL_RXBYTE_SUCCEED				;4	判断停止位是否为高
+	CALL	_FUN_LIB_DELAY20
+ 	JB	PIN_ESAM_RX,SERIAL_RXBYTE_SUCCEED				;4	判断停止位是否为高
+;-------	
+SERIAL_RXBYTE_STOPER:
+	MOV	R7,#CONST_STATE_SERIALACCPET					;2
+	JMP	SERIAL_RXBYTE_OVER						;4
+	
+SERIAL_RXBYTE_SUCCEED:								;
+;	CALL	_FUN_SERIAL_BITSPACEHALF_44					;	延时半位
+	MOV	R7,#CONST_STATE_TRUE						;2
+SERIAL_RXBYTE_OVER:	
+	MOV	R5,A							;
+
+	RET	
+	
+	
+	
+	
+;//////////////////////////////////////////////////////////////////////////////									;4
+
+;---------------------------------------------------------
+; 描述:软串口接收数据		
+;外部参数			
+;PIN_SOFTSERIALRX	---	发送引脚
+;BIT_BUFADDR		---	=0，接收数据到内存；=1，接收数据到外存
+;BIT_SERIALOVERTIMERX	---	串口等待接收是否有时间,限制=0没有限制;=1有时间限制
+;BIT_VERIFY		---	串口收发是否要加验位,=0不要，=1要
+;BIT_ISFRX		---	=0表示串口第一个字节接收   ;1表示第一个字节不接收	
+;r7			---	将要接收字符串BUF的指针
+;XDATA_SoftSerialP	---	用于软口串口接收程序记录启始地址
+;内部参数			
+;R0			---	暂存单元
+;调用子函数			
+;_FUN_SERIAL_RXSBYTE	---	软串口接收单个字节的数据
+;返回值				
+;r7			---	返回状态码
+;r5			---	返回接收字符串
+;r3			---	接收数据的长度
+;---------------------------------------------------------
+_FUN_SERIAL_RXSOFT:;(46,)
+	SETB	BIT_SERFIRBYTE					;1 当前是否正在检索串口第一个字节=1表示是   ;=0表示不
+	setb	BIT_ISFRX	
+;--- 接收数据 ---
+SERIAL_RXSOFT_STR:
+
+	;---MOV	R3,#0						;2	设置接收数据的长度
+	MOV	A,R7						;1	
+	MOV	R0,#XDATA_SoftSerialP				;2 	记录BUF启始地址
+		;MOVX	@R0,A
+	MOV 	DPH,#1 
+	MOV 	DPL,R0 
+	MOVX 	@DPTR,A						;3
+	
+	MOV	AR0,AR7						;2
+	;MOV	R0,A						;2
+		
+	MOV	A,R3						;2 
+	JZ	SERIAL_RXSOFT_STRLOOP				;3 如果R3=0，则不变，如果R3不为零，则r3指向将要读取长度的最后一个字节的位置
+	ADD	A,R0						;2 
+	DEC	A						;2 A指向将要读取最后一个字节
+	MOV	R3,A						;2
+	clr	BIT_ISFRX
+SERIAL_RXSOFT_STRLOOP:
+	PUSH	AR0						;4
+	CALL	_FUN_SERIAL_RXSBYTE				;(14,6)
+	POP	AR0						;3
+	
+	;以下处理时间要在串口的半个位的时间内完成 115200 是65个周期
+	SETB	BIT_SERIALOVERTIMERX				;1	第一个字节接收后就不再无限制接收
+	
+	;判断接收是否正确
+	MOV	R2,A						;3
+	MOV	A,R7						;3	将返回状态和接收值互换
+	XRL	A,#CONST_STATE_TRUE				;3
+	JNZ	SERIAL_RXSOFT_OVER				;3
+	
+	;超长处理	
+		;PUSH	AR1						;4
+	MOV	R1,#XDATA_SoftSerialP				;2
+		;MOVX	A,@R1
+	MOV	DPH,#1
+	MOV	DPL,R1
+	MOVX	A,@DPTR						;3
+		;POP	AR1						;3	
+	MOV	AR7,AR0						;2	
+	XCH	A,R7						;3
+	CLR	C						;1
+	SUBB	A,R7						;2 不有用r7记录
+	CJNE	A,#CONST_LEN_RXBUF-1,$+3			;4
+	JNC	SERIAL_RXSOFT_ACCEPTOVERLEN			;3
+
+	MOV	A,R2						;2 接收到的数据
+
+	;将接收数据放入到内存中
+	JB	BIT_BUFADDR,SERIAL_RXSOFTMOVX			;4
+SERIAL_RXSOFTMOV:;将接收数据放入到内存中		
+	MOV	@R0,A						;2
+	JMP	SERIAL_RXSOFTMOVOver				;4
+SERIAL_RXSOFTMOVX:;将接收数据放入到外存中	
+		;MOVX	@R0,A
+	MOV 	DPH,#1 
+	MOV 	DPL,R0 
+	MOVX 	@DPTR,A	
+	NOP							;1		
+	NOP							;1	
+	NOP							;1	
+SERIAL_RXSOFTMOVOver:
+
+	;---JNB	BIT_ISFRX,SERIAL_RXSOFT_ADD			;4
+	;---CLR	BIT_ISFRX					;1
+	;---JMP	SERIAL_RXSOFT_STRLOOP				;4
+SERIAL_RXSOFT_ADD:
+	MOV	A,R3						;2
+	;JZ	SERIAL_RXSOFT_ADDContinue			;3
+	JB	BIT_ISFRX,SERIAL_RXSOFT_ADDContinue
+
+	XRL	A,R0						;2
+	JNZ	SERIAL_RXSOFT_ADDContinue			;3 如果当前已读满字节数，则退出
+
+	INC	R0						;3
+	JMP	SERIAL_RXSOFT_OVER				;4
+SERIAL_RXSOFT_ADDContinue:
+
+	;---INC	R3						;3
+	INC	R0						;3
+	JMP	SERIAL_RXSOFT_STRLOOP				;4
+
+SERIAL_RXSOFT_ACCEPTOVERLEN:
+	MOV	R7,#CONST_STATE_ACCEPTOVERLEN			;2
+	MOV	R3,#CONST_LEN_RXBUF		
+
+	MOV	R0,#XDATA_SoftSerialP
+		;MOVX	A,@R0
+	MOV	DPH,#1
+	MOV	DPL,R0
+	MOVX	A,@DPTR
+	ADD	A,#CONST_LEN_RXBUF
+	MOV	R0,A
+SERIAL_RXSOFT_OVER:
+
+	MOV	R1,#XDATA_SoftSerialP
+		;MOVX	A,@R1
+	MOV	DPH,#1
+	MOV	DPL,R1
+	MOVX	A,@DPTR
+
+	;MOV	AR7,AR0
+	CLR	C
+	XCH	A,R0
+	SUBB	A,R0
+	MOV	R3,A						;实际读取的字节数
+
+	RET							;4
+	
+;-------------------------------------
+;因需要，已将#DATA_VARTMP1去掉和用断跳转去掉，本中断暂时无法用，要用时再说
+; 描述:硬串口发送接收中断处理程序(串口中断用工作区1，平时主程序用工作区0)
+;外部参数:
+
+;XDATA_TXBUF		---	将要接收数据的buf
+;BIT_HARDFLAG		---	硬串口接收完成标记=1完成;=0未完成接收(平时为0)
+;DATA_RXBUF		---	接收绶冲(因为接收绶冲的数据不知什么时候来，所以要)
+;DATA_VARTMP1		---	接收数据长度(1表示接收到一个字节)
+;BIT_FIRSTTX		---	硬串口发送第一个字节标记; =0表示还没发送第一个字节=1表示已发送
+
+;内部参数:
+
+;R3			---	发送接收数据的长度
+;R2			---	内部临时用
+;A			---	
+
+;疑问:
+;在中断中不能使用堆栈	---	
+;-------------------------------------
+_FUN_SERIAL_RXTXINTERRUPT:
+
+
+
+	RETI
+
+;---------------------------------------------------------
+;描述:硬串口发送数据(字符串)
+;外部参数
+;BIT_BUFADDR	---	=0，发送的是内存数据；=1，发送的是外存数据
+;BIT_VERIFY	---	串口收发是否要加验位,=0不要，=1要
+;r7		---	将要发送数据的buf
+;r3		---	发送数据的长度
+;---------------------------------------------------------
+_FUN_SERIAL_TXHARD:
+
+	CLR	REN
+	MOV	AR0,AR7
+SERIAL_TXHARD_SENDLOOP:
+	MOV	A,R3
+	JZ	SERIAL_TXHARD_OVER
+
+	CLR	TI
+	JB	BIT_BUFADDR,SERIAL_TXHARD_SPACE
+	MOV	A,@R0
+	JMP	SERIAL_TXHARD_SPACEOVER
+
+SERIAL_TXHARD_SPACE:
+		;MOVX	A,@R0
+	MOV	DPH,#1
+	MOV	DPL,R0
+	MOVX	A,@DPTR
+SERIAL_TXHARD_SPACEOVER:
+	
+	;--- 发送延时 ---
+	MOV	R2,#100						;010H
+SERIAL_RXTXINTERRUPT_SENDDELAY:
+	DJNZ	R2,SERIAL_RXTXINTERRUPT_SENDDELAY
+	
+;	MOV	R2,#0FFH
+;SERIAL_RXTXINTERRUPT_SENDDELAY2:
+;	DJNZ	R2,SERIAL_RXTXINTERRUPT_SENDDELAY2
+	
+	JNB	BIT_VERIFY,TXHARD_SENDLOOP_NINE
+	MOV	C,P
+	MOV	RB8,C
+TXHARD_SENDLOOP_NINE:
+	MOV	SBUF,A
+	
+	;--- 标记下移 ---
+	INC	R0
+	DEC	R3
+
+SERIAL_TXHARD_TI:
+	JNB	TI,SERIAL_TXHARD_TI
+	
+	push	ar7
+	mov	r7,#10
+	djnz	r7,$
+	pop	ar7
+	JMP	SERIAL_TXHARD_SENDLOOP
+SERIAL_TXHARD_OVER:
+	SETB	REN
+
+	RET
+			
+;
+_FUN_SERIAL_TXHARD02:
+	
+	;---CLR	REN2
+	ANL	S2CON,#11101111B
+	MOV	AR0,AR7
+SERIAL_TXHARD02_SENDLOOP:
+	MOV	A,R3
+	JZ	SERIAL_TXHARD02_OVER
+	
+	;---CLR	TI2
+	ANL	S2CON,#11111101B
+	JB	BIT_BUFADDR,SERIAL_TXHARD02_SPACE
+	MOV	A,@R0
+	JMP	SERIAL_TXHARD02_SPACEOVER
+	
+SERIAL_TXHARD02_SPACE:
+		;MOVX	A,@R0
+	MOV	DPH,#1
+	MOV	DPL,R0
+	MOVX	A,@DPTR
+SERIAL_TXHARD02_SPACEOVER:
+	
+	;--- 发送延时 ---
+	MOV	R2,#100							;010H
+SERIAL_TXHARD02_SENDDELAY:
+	DJNZ	R2,SERIAL_TXHARD02_SENDDELAY
+	
+;	MOV	R2,#0FFH
+;SERIAL_RXTXINTERRUPT_SENDDELAY2:
+;	DJNZ	R2,SERIAL_RXTXINTERRUPT_SENDDELAY2
+	
+	JNB	BIT_VERIFY,SERIAL_TXHARD02_SENDDELAY_NINE
+	MOV	C,P
+	PUSH	ACC
+	;---MOV	RB82,C
+	MOV	A,S2CON
+	MOV	ACC.2,C
+	MOV	S2CON,A
+	POP	ACC
+SERIAL_TXHARD02_SENDDELAY_NINE:
+	MOV	S2BUF,A
+	
+	;--- 标记下移 ---
+	INC	R0
+	DEC	R3
+
+SERIAL_TXHARD02_TI:
+	MOV	A,S2CON
+	;---JNB	TI2,SERIAL_TXHARD02_TI
+	JNB	ACC.1,SERIAL_TXHARD02_TI
+	JMP	SERIAL_TXHARD02_SENDLOOP
+SERIAL_TXHARD02_OVER:
+	;---SETB	REN2
+	ORL	S2CON,#00010000B
+
+	RET	
+
+	
+	
+;---------------------------------------------------------
+; 描述:硬串口接收数据
+;外部参数
+;BIT_BUFADDR		---	= 0，接收数据到内存； = 1，接收数据到外存
+;BIT_SERIALOVERTIMERX	---	串口等待接收是否有时间,限制 =0,没有限制 ; =1有时间限制
+;BIT_VERIFY		---	串口收发是否要加验位, = 0不要， = 1要
+;R7			---	将要接收字符串buf的指针
+;R3			---	将要接收的字节数
+;BIT_ISFRX		---	=0表示串口第一个字节接收   ;1表示第一个字节不接收	
+;内部参数			
+;R0			---	暂存单元
+;返回值
+;r7			---	返回接收字符串
+;R3			---	接收数据的长度
+;---------------------------------------------------------
+_FUN_SERIAL_RXHARD:
+	
+	SETB	BIT_SERFIRBYTE						;当前是否正在检索串口第一个字节=1表示是   ;=0表示不
+	SETB	REN
+	CLR	RI							; 
+	MOV	AR0,AR7							; 
+	
+	MOV	A,R3							; 
+	JZ	SERIAL_RXHARD_RXLOOP					; 如果R3=0，则不变，如果R3不为零，则r3指向将要读取长度的最后一个字节的位置
+	ADD	A,R0							; 
+	DEC	A							; A指向将要读取最后一个字节
+	MOV	R3,A					;
+	
+	; PUSH	AR5
+SERIAL_RXHARD_RXLOOP:
+	JNB	BIT_SERIALOVERTIMERX,SERIAL_RXHARD_SEARCHSTARTLIMITLESS	;无限等待接收	
+	JNB	BIT_SERFIRBYTE,SERIAL_RXHARD_SECONDBYTE
+	CLR	BIT_SERFIRBYTE
+	
+	;--- 限制超时查询时间 ---
+	PUSH	AR0
+	MOV	R0,#XDATA_SOFTFIRSTSCANTIME
+		;MOVX	A,@R0
+	MOV	DPH,#1
+	MOV	DPL,R0
+	MOVX	A,@DPTR
+	POP	AR0
+	
+	MOV	R4,A
+	;MOV	R4,#CONST_SOFTFIRSTSCANTIME
+	MOV	R2,#127;127;0FFH;#0FFH
+	MOV	R5,#0FFH;#0FFH
+SERIAL_RXHARD_SERRI:
+	JB	RI,SERIAL_RXHARD_ALREADYRX
+	DJNZ	R5,SERIAL_RXHARD_SERRI					;SERIAL_RXTXINTERRUPT_SERRI	
+	DJNZ	R2,SERIAL_RXHARD_SERRI					;SERIAL_RXTXINTERRUPT_SERRI
+	DJNZ	R4,SERIAL_RXHARD_SERRI					;SERIAL_RXTXINTERRUPT_SERRI
+	
+	;~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	;call	_FUN_TEST_BEEP
+	;MOV	A,#34
+	;JMP	_FUN_TEST_DISPLAY
+	;~~~~~~~~~~~~~~~~~~~~~~~~~~~	
+	
+	JMP	SERIAL_RXHARD_OVER
+SERIAL_RXHARD_SECONDBYTE:
+	
+	;--- 有限时间内搜索串口起启位 ---
+	MOV	R4,#CONST_HANDSECOND
+	MOV	R2,#0FFH
+SERIAL_RXHARD_SESECONDRRI:
+	JB	RI,SERIAL_RXHARD_ALREADYRX
+	DJNZ	R2,SERIAL_RXHARD_SESECONDRRI				;SERIAL_RXTXINTERRUPT_SERRI
+	DJNZ	R4,SERIAL_RXHARD_SESECONDRRI				;SERIAL_RXTXINTERRUPT_SERRI	JMP	SERIAL_RXHARD_OVER
+	
+	;~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	;call	_FUN_TEST_BEEP
+	;MOV	A,#33
+	;JMP	_FUN_TEST_DISPLAY
+	;~~~~~~~~~~~~~~~~~~~~~~~~~~~	
+	JMP	SERIAL_RXHARD_OVER	
+	
+	;不限时接收数据
+SERIAL_RXHARD_SEARCHSTARTLIMITLESS:
+	JNB	RI,SERIAL_RXHARD_SEARCHSTARTLIMITLESS
+	SETB	BIT_SERIALOVERTIMERX
+	
+SERIAL_RXHARD_ALREADYRX:;开始接收
+	CLR	RI
+	MOV	A,SBUF
+
+	JB	BIT_BUFADDR,SERIAL_RXHARD_SPACE
+	MOV	@R0,A
+	JMP	SERIAL_RXHARD_SPACEOVER
+SERIAL_RXHARD_SPACE:
+		;MOVX	@R0,A
+	MOV 	DPH,#1 
+	MOV 	DPL,R0 
+	MOVX 	@DPTR,A		
+	NOP
+	NOP
+	NOP
+SERIAL_RXHARD_SPACEOVER:
+	
+	MOV	A,R3
+	JZ	SERIAL_RXHARD_Continue	;当R3为0，表示，接收数据长度不确定，靠超时完成接收数据		
+	
+	XRL	A,R0
+	JNZ	SERIAL_RXHARD_Continue	;如果当前已读满字节数，则退出
+
+	INC	R0
+	;---CLR	BIT_ISFRX
+	JMP	SERIAL_RXHARD_OVER
+	
+SERIAL_RXHARD_Continue:	
+	
+	;BIT_ISFRX	---	=0表示串口第一个字节接收   ;1表示第一个字节不接收	
+	;JNB	BIT_ISFRX,SERIAL_RXHARD_ADD
+	;CLR	BIT_ISFRX
+	;JMP	SERIAL_RXHARD_RXLOOP
+	
+;SERIAL_RXHARD_ADD:
+
+	INC	R0	
+	JMP	SERIAL_RXHARD_RXLOOP
+	
+SERIAL_RXHARD_OVER:
+	
+	MOV	A,R0
+	CLR	C
+	SUBB	A,R7
+	MOV	R3,A						;实际读取的字节数
+	
+	CLR	REN
+	CLR	RI
+	
+	RET
+	
+	
+;---------------------------------------------------------
+; 描述:硬串口接收单个字节的数据	
+;外部参数			
+;BIT_VERIFY			---	串口收发是否要加验位,=0不要，=1要
+;XDATA_SOFTFIRSTSCANTIME	---	超时时间
+;调用子函数			
+;_FUN_SERIAL_RXSBYTE		---	软串口接收单个字节的数据
+;返回值				
+;r7				---	返回状态码
+;A				---	返回接收的数据
+;R5				---	返回接收的数据
+;---------------------------------------------------------
+_FUN_SERIAL_RXHBYTE:
+	
+	SETB	REN
+	CLR	RI
+	
+	;--- 限制超时查询时间 ---
+	;PUSH	AR0
+	MOV	R0,#XDATA_SOFTFIRSTSCANTIME
+		;MOVX	A,@R0
+	MOV	DPH,#1
+	MOV	DPL,R0
+	MOVX	A,@DPTR
+	;POP	AR0
+	
+	MOV	R4,A
+	;MOV	R4,#26H
+	MOV	R2,#0FFH				;#0FFH
+	MOV	R5,#0FFH				;#0FFH
+SERIAL_RXHBYTE_SERRI:
+	JB	RI,SERIAL_RXHBYTE_ALREADYRX
+	DJNZ	R5,SERIAL_RXHBYTE_SERRI
+	DJNZ	R2,SERIAL_RXHBYTE_SERRI
+	DJNZ	R4,SERIAL_RXHBYTE_SERRI
+	
+	;CALL	_FUN_TEST_BEEP
+	
+	MOV	R7,#CONST_STATE_SERIALOVERTIME	
+	JMP	SERIAL_RXHBYTE_OVER	
+SERIAL_RXHBYTE_ALREADYRX:
+	
+	CLR	RI
+	MOV	A,SBUF
+	MOV	R5,A
+	MOV	R7,#CONST_STATE_TRUE	
+	
+	CLR	REN
+	CLR	RI
+SERIAL_RXHBYTE_OVER:
+	
+	RET			
+
+
+_FUN_SERIAL_RXHARD02:
+	
+	SETB	BIT_SERFIRBYTE						;当前是否正在检索串口第一个字节=1表示是   ;=0表示不	
+	;---SETB	REN2
+	ORL	S2CON,#00010000B
+	;---CLR	RI2		
+	ANL	S2CON,#11111110B					; 
+	MOV	AR0,AR7							; 
+	
+	MOV	A,R3							; 
+	JZ	SERIAL_RXHARD02_RXLOOP					; 如果R3=0，则不变，如果R3不为零，则r3指向将要读取长度的最后一个字节的位置
+	ADD	A,R0							; 
+	DEC	A							; A指向将要读取最后一个字节
+	MOV	R3,A
+	
+	; PUSH	AR5
+SERIAL_RXHARD02_RXLOOP:	
+	JNB	BIT_SERIALOVERTIMERX,SERIAL_RXHARD02_SEARCHSTARTLIMITLESS	;无限等待接收
+	
+	JNB	BIT_SERFIRBYTE,SERIAL_RXHARD02_SECONDBYTE
+	CLR	BIT_SERFIRBYTE
+	
+	;--- 限制超时查询时间 ---
+	PUSH	AR0
+	MOV	R0,#XDATA_SOFTFIRSTSCANTIME
+		;MOVX	A,@R0
+	MOV	DPH,#1
+	MOV	DPL,R0
+	MOVX	A,@DPTR
+	POP	AR0
+	
+	MOV	R4,A
+	;MOV	R4,#CONST_SOFTFIRSTSCANTIME
+	MOV	R2,#0FFH;#0FFH
+	MOV	R5,#0FFH;#0FFH
+SERIAL_RXHARD02_SERRI:
+	MOV	A,S2CON
+	JB	ACC.0,SERIAL_RXHARD02_ALREADYRX
+	;---JB	RI2,SERIAL_RXHARD02_ALREADYRX
+	DJNZ	R5,SERIAL_RXHARD02_SERRI					;SERIAL_RXTXINTERRUPT_SERRI	
+	DJNZ	R2,SERIAL_RXHARD02_SERRI					;SERIAL_RXTXINTERRUPT_SERRI
+	DJNZ	R4,SERIAL_RXHARD02_SERRI					;SERIAL_RXTXINTERRUPT_SERRI
+	
+	;~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	;call	_FUN_TEST_BEEP
+	;MOV	A,#34
+	;JMP	_FUN_TEST_DISPLAY
+	;~~~~~~~~~~~~~~~~~~~~~~~~~~~	
+	
+	JMP	SERIAL_RXHARD02_OVER
+SERIAL_RXHARD02_SECONDBYTE:
+	
+	;--- 有限时间内搜索串口起启位 ---
+	MOV	R4,#CONST_HANDSECOND
+	MOV	R2,#0FFH
+SERIAL_RXHARD02_SESECONDRRI:
+	;---JB	RI2,SERIAL_RXHARD02_ALREADYRX
+	MOV	A,S2CON
+	JB	ACC.0,SERIAL_RXHARD02_ALREADYRX	
+	DJNZ	R2,SERIAL_RXHARD02_SESECONDRRI				;SERIAL_RXTXINTERRUPT_SERRI
+	DJNZ	R4,SERIAL_RXHARD02_SESECONDRRI				;SERIAL_RXTXINTERRUPT_SERRI	JMP	SERIAL_RXHARD02_OVER
+	
+	;~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	;call	_FUN_TEST_BEEP
+	;MOV	A,#33
+	;JMP	_FUN_TEST_DISPLAY
+	;~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	
+	JMP	SERIAL_RXHARD02_OVER
+	;不限时接收数据
+SERIAL_RXHARD02_SEARCHSTARTLIMITLESS:
+	;JB	Pin_USB,SERIAL_RXHARD02_zz
+	;---JNB	RI2,SERIAL_RXHARD02_SEARCHSTARTLIMITLESS
+	MOV	A,S2CON
+	JNB	ACC.0,SERIAL_RXHARD02_SEARCHSTARTLIMITLESS	
+	SETB	BIT_SERIALOVERTIMERX
+	
+	; 关定时器
+	CLR	TR0							;开启T0
+	CLR	ET0							;开启T0使能
+	MOV	DATA_PowerONTimer,#CONST_TIMEER02
+	
+	;CALL	TEST_TIME_CLEAR	
+SERIAL_RXHARD02_ALREADYRX:;开始接收
+	
+	;--- CLR	RI2
+	ANL	S2CON,#11111110B
+	MOV	A,S2BUF
+	
+	JB	BIT_BUFADDR,SERIAL_RXHARD02_SPACE
+	MOV	@R0,A
+	JMP	SERIAL_RXHARD02_SPACEOVER
+	
+SERIAL_RXHARD02_SPACE:
+		;MOVX	@R0,A
+	MOV 	DPH,#1 
+	MOV 	DPL,R0 
+	MOVX 	@DPTR,A
+	NOP
+	NOP
+	NOP
+SERIAL_RXHARD02_SPACEOVER:
+	
+	MOV	A,R3
+	JZ	SERIAL_RXHARD02_Continue	;当R3为0，表示，接收数据长度不确定，靠超时完成接收数据		
+	
+	XRL	A,R0
+	JNZ	SERIAL_RXHARD02_Continue	;如果当前已读满字节数，则退出
+
+	INC	R0
+	JMP	SERIAL_RXHARD02_OVER
+	
+SERIAL_RXHARD02_Continue:	
+	INC	R0	
+	JMP	SERIAL_RXHARD02_RXLOOP
+	
+SERIAL_RXHARD02_OVER:
+	
+	MOV	A,R0
+	CLR	C
+	SUBB	A,R7
+	MOV	R3,A						;实际读取的字节数
+	
+	;---CLR	REN2
+	ANL	S2CON,#11101111B
+	;---CLR	RI2
+	ANL	S2CON,#11111110B
+	
+	RET
+
+
+
+;_FUN_SERIAL_InitUART2: ;初始化串口
+
+
+
+;//////////////////////////////////////////////////////////////////////////////////////////////
+_FUN_testSERIAL_RXHARD:
+
+	clr	A
+	RET	
+;///////////////////////////////////////////////////////////////////////////////////////////////
+;---------------------------------------------------------
+;描述:软串口发送数据(字符串)
+;外部参数
+;BIT_BUFADDR
+;R7		---	将要发送数据的buf
+;R5		---	字节间的延时间0~255
+;R3		---	发送数据的长度
+;---------------------------------------------------------
+_FUN_SERIAL_AudioTXSOFT:
+	
+	MOV	AR0,AR7								;4
+	
+	;---Audio---
+SERIAL_AudioTXSOFT_ESAMLOOP:
+	MOV	A,R5								;2
+	MOV	R7,A								;2
+	CALL	_FUN_LIB_DELAYSIMPLAY
+	JB	BIT_BUFADDR,SERIAL_ESAMAudioTXSOFTMOVX				;4
+	MOV	A,@R0								;2
+	JMP	SERIAL_ESAMAudioTXSOFTMOVOVER					;4
+SERIAL_ESAMAudioTXSOFTMOVX:	
+		;MOVX	A,@R0
+	MOV	DPH,#1
+	MOV	DPL,R0
+	MOVX	A,@DPTR								;3
+	NOP									;
+	NOP									;
+	NOP
+SERIAL_ESAMAudioTXSOFTMOVOVER:
+	MOV	R7,A								;2
+	CALL	_FUN_SERIAL_AudioTXBYTE						;6
+	INC	R0								;3
+	DJNZ	R3,SERIAL_AudioTXSOFT_ESAMLOOP					;4
+	
+	MOV	R7,#0								;
+	JMP	SERIAL_AudioTXSOFT_OVER
+
+SERIAL_AudioTXSOFT_OVER:
+
+	RET	
+	
+_FUN_SERIAL_AudioTXBYTE:
+
+	;---CLR	PIN_Audio_TX					;1		
+	;---CLR	PIN_SOFTSERIALTXH
+	MOV	A,r7						;1 (误差1个周期)
+	;---CALL	_FUN_SERIAL_BITSPACEFULL_12		;
+	CALL	_FUN_LIB_DELAY2550;(2560-17=2543)
+								;
+ 	JNB	BIT_VERIFY,SERIAL_AudioTXBYTE_ESAMVERIFY	;4
+	MOV	C,P						;2
+	MOV	R1,#9						;2
+
+	JMP	SERIAL_TXBYTE_ESAMLOOP				;4
+SERIAL_AudioTXBYTE_ESAMVERIFY:					;
+	MOV	R1,#8						;2
+	NOP							;
+	NOP							;
+	NOP
+	NOP
+	NOP
+	NOP
+SERIAL_AudioTXBYTE_LOOP:						;
+	RRC	A						;1
+	;---MOV	PIN_Audio_TX,C					;3
+	;---MOV	PIN_SOFTSERIALTXH,C
+	CALL	_FUN_LIB_DELAY2550;(2560-8=2552)		
+	NOP
+	NOP
+	NOP
+	NOP
+	NOP
+	NOP
+	DJNZ	R1,SERIAL_AudioTXBYTE_LOOP			;4
+								;
+	NOP							;1
+	NOP							;1
+	NOP							;1
+	;---SETB	PIN_Audio_TX					;1
+	;---SETB	PIN_SOFTSERIALTXH
+	CALL	_FUN_LIB_DELAY2550;(2560-28=2532)		;(127-28 = 99)	
+	RET			
+;/////////////////////////////////////////////////////////////////////
+_FUN_SERIAL_RXHARD03:
+	
+	SETB	BIT_SERFIRBYTE						;当前是否正在检索串口第一个字节=1表示是   ;=0表示不
+	SETB	REN
+	CLR	RI							; 
+	MOV	AR0,AR7							; 
+	
+	MOV	A,R3							; 
+	JZ	SERIAL_RXHARD03_RXLOOP					; 如果R3=0，则不变，如果R3不为零，则r3指向将要读取长度的最后一个字节的位置
+	ADD	A,R0							; 
+	DEC	A							; A指向将要读取最后一个字节
+	MOV	R3,A					;
+	
+	; PUSH	AR5
+SERIAL_RXHARD03_RXLOOP:
+	JNB	BIT_SERIALOVERTIMERX,SERIAL_RXHARD03_SEARCHSTARTLIMITLESS	;无限等待接收	
+	JNB	BIT_SERFIRBYTE,SERIAL_RXHARD03_SECONDBYTE
+	CLR	BIT_SERFIRBYTE
+	
+	;--- 限制超时查询时间 ---
+	PUSH	AR0
+	MOV	R0,#XDATA_SOFTFIRSTSCANTIME
+		;MOVX	A,@R0
+	MOV	DPH,#1
+	MOV	DPL,R0
+	MOVX	A,@DPTR
+	POP	AR0
+	
+	MOV	R4,#42;A
+	;MOV	R4,#CONST_SOFTFIRSTSCANTIME
+	MOV	R2,#0FFH;127;0FFH;#0FFH
+	MOV	R5,#0FFH;#0FFH
+SERIAL_RXHARD03_SERRI:
+	JB	RI,SERIAL_RXHARD03_ALREADYRX
+	DJNZ	R5,SERIAL_RXHARD03_SERRI					;SERIAL_RXTXINTERRUPT_SERRI	
+	DJNZ	R2,SERIAL_RXHARD03_SERRI					;SERIAL_RXTXINTERRUPT_SERRI
+	DJNZ	R4,SERIAL_RXHARD03_SERRI					;SERIAL_RXTXINTERRUPT_SERRI
+	
+	;~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	;call	_FUN_TEST_BEEP
+	;MOV	A,#34
+	;JMP	_FUN_TEST_DISPLAY
+	;~~~~~~~~~~~~~~~~~~~~~~~~~~~	
+	
+	JMP	SERIAL_RXHARD03_OVER
+SERIAL_RXHARD03_SECONDBYTE:
+	
+	;--- 有限时间内搜索串口起启位 ---
+	MOV	R4,#CONST_HANDSECOND
+	MOV	R2,#0FFH
+SERIAL_RXHARD03_SESECONDRRI:
+	JB	RI,SERIAL_RXHARD03_ALREADYRX
+	DJNZ	R2,SERIAL_RXHARD03_SESECONDRRI				;SERIAL_RXTXINTERRUPT_SERRI
+	DJNZ	R4,SERIAL_RXHARD03_SESECONDRRI				;SERIAL_RXTXINTERRUPT_SERRI	JMP	SERIAL_RXHARD03_OVER
+	
+	;~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	;call	_FUN_TEST_BEEP
+	;MOV	A,#33
+	;JMP	_FUN_TEST_DISPLAY
+	;~~~~~~~~~~~~~~~~~~~~~~~~~~~	
+	JMP	SERIAL_RXHARD03_OVER	
+	
+	;不限时接收数据
+SERIAL_RXHARD03_SEARCHSTARTLIMITLESS:
+	JNB	RI,SERIAL_RXHARD03_SEARCHSTARTLIMITLESS
+	SETB	BIT_SERIALOVERTIMERX
+	
+SERIAL_RXHARD03_ALREADYRX:;开始接收
+	CLR	RI
+	MOV	A,SBUF
+
+	JB	BIT_BUFADDR,SERIAL_RXHARD03_SPACE
+	MOV	@R0,A
+	JMP	SERIAL_RXHARD03_SPACEOVER
+SERIAL_RXHARD03_SPACE:
+		;MOVX	@R0,A
+	MOV 	DPH,#1 
+	MOV 	DPL,R0 
+	MOVX 	@DPTR,A		
+	NOP
+	NOP
+	NOP
+SERIAL_RXHARD03_SPACEOVER:
+	
+	MOV	A,R3
+	JZ	SERIAL_RXHARD03_Continue	;当R3为0，表示，接收数据长度不确定，靠超时完成接收数据		
+	
+	XRL	A,R0
+	JNZ	SERIAL_RXHARD03_Continue	;如果当前已读满字节数，则退出
+
+	INC	R0
+	;---CLR	BIT_ISFRX
+	JMP	SERIAL_RXHARD03_OVER
+	
+SERIAL_RXHARD03_Continue:	
+	
+	;BIT_ISFRX	---	=0表示串口第一个字节接收   ;1表示第一个字节不接收	
+	;JNB	BIT_ISFRX,SERIAL_RXHARD03_ADD
+	;CLR	BIT_ISFRX
+	;JMP	SERIAL_RXHARD03_RXLOOP
+	
+;SERIAL_RXHARD03_ADD:
+
+	INC	R0	
+	JMP	SERIAL_RXHARD03_RXLOOP
+	
+SERIAL_RXHARD03_OVER:
+	
+	MOV	A,R0
+	CLR	C
+	SUBB	A,R7
+	MOV	R3,A						;实际读取的字节数
+	
+	CLR	REN
+	CLR	RI
+	
+	RET
+	
+
+_FUN_SERIAL_RXSOFTRST:;(46,)
+	SETB	BIT_SERFIRBYTE					;1 当前是否正在检索串口第一个字节=1表示是   ;=0表示不
+;--- 接收数据 ---
+SERIAL_RXSOFT02_STR:
+
+	;---MOV	R3,#0						;2	设置接收数据的长度
+	MOV	A,R7						;1	
+	MOV	R0,#XDATA_SoftSerialP				;2 	记录BUF启始地址
+		;MOVX	@R0,A
+	MOV 	DPH,#1 
+	MOV 	DPL,R0 
+	MOVX 	@DPTR,A						;3
+	
+	MOV	AR0,AR7						;2
+	;MOV	R0,A						;2
+		
+	MOV	A,R3						;2 
+	JZ	SERIAL_RXSOFT02_STRLOOP				;3 如果R3=0，则不变，如果R3不为零，则r3指向将要读取长度的最后一个字节的位置
+	ADD	A,R0						;2 
+	DEC	A						;2 A指向将要读取最后一个字节
+	MOV	R3,A						;2
+
+SERIAL_RXSOFT02_STRLOOP:
+	PUSH	AR0						;4
+	CALL	_FUN_SERIAL_RXSBYTE02				;(14,6)
+	POP	AR0						;3
+	
+	;以下处理时间要在串口的半个位的时间内完成 115200 是65个周期
+	SETB	BIT_SERIALOVERTIMERX				;1	第一个字节接收后就不再无限制接收
+	
+	;判断接收是否正确
+	MOV	R2,A						;3
+	MOV	A,R7						;3	将返回状态和接收值互换
+	XRL	A,#CONST_STATE_TRUE				;3
+	JNZ	SERIAL_RXSOFT02_OVER				;3
+	
+	;超长处理	
+		;PUSH	AR1						;4
+	MOV	R1,#XDATA_SoftSerialP				;2
+		;MOVX	A,@R1
+	MOV	DPH,#1
+	MOV	DPL,R1
+	MOVX	A,@DPTR						;3
+		;POP	AR1						;3	
+	MOV	AR7,AR0						;2	
+	XCH	A,R7						;3
+	CLR	C						;1
+	SUBB	A,R7						;2 不有用r7记录
+	CJNE	A,#CONST_LEN_RXBUF-1,$+3			;4
+	JNC	SERIAL_RXSOFT02_ACCEPTOVERLEN			;3
+
+	MOV	A,R2						;2 接收到的数据
+
+	;将接收数据放入到内存中
+	JB	BIT_BUFADDR,SERIAL_RXSOFT02MOVX			;4
+SERIAL_RXSOFT02MOV:;将接收数据放入到内存中		
+	MOV	@R0,A						;2
+	JMP	SERIAL_RXSOFT02MOVOver				;4
+SERIAL_RXSOFT02MOVX:;将接收数据放入到外存中	
+		;MOVX	@R0,A
+	MOV 	DPH,#1 
+	MOV 	DPL,R0 
+	MOVX 	@DPTR,A	
+	NOP							;1		
+	NOP							;1	
+	NOP							;1	
+SERIAL_RXSOFT02MOVOver:
+
+	;---JNB	BIT_ISFRX,SERIAL_RXSOFT02_ADD			;4
+	;---CLR	BIT_ISFRX					;1
+	;---JMP	SERIAL_RXSOFT02_STRLOOP				;4
+SERIAL_RXSOFT02_ADD:
+	MOV	A,R3						;2
+	JZ	SERIAL_RXSOFT02_ADDContinue			;3
+
+	XRL	A,R0						;2
+	JNZ	SERIAL_RXSOFT02_ADDContinue			;3 如果当前已读满字节数，则退出
+
+	INC	R0						;3
+	JMP	SERIAL_RXSOFT02_OVER				;4
+SERIAL_RXSOFT02_ADDContinue:
+
+	;---INC	R3						;3
+	INC	R0						;3
+	JMP	SERIAL_RXSOFT02_STRLOOP				;4
+
+SERIAL_RXSOFT02_ACCEPTOVERLEN:
+	MOV	R7,#CONST_STATE_ACCEPTOVERLEN			;2
+	MOV	R3,#CONST_LEN_RXBUF		
+
+	MOV	R0,#XDATA_SoftSerialP
+		;MOVX	A,@R0
+	MOV	DPH,#1
+	MOV	DPL,R0
+	MOVX	A,@DPTR
+	ADD	A,#CONST_LEN_RXBUF
+	MOV	R0,A
+SERIAL_RXSOFT02_OVER:
+
+	MOV	R1,#XDATA_SoftSerialP
+		;MOVX	A,@R1
+	MOV	DPH,#1
+	MOV	DPL,R1
+	MOVX	A,@DPTR
+
+	;MOV	AR7,AR0
+	CLR	C
+	XCH	A,R0
+	SUBB	A,R0
+	MOV	R3,A						;实际读取的字节数
+
+	RET	
+;//////////////////////////////////////////////////////////////////////////////////////////	
+_FUN_SERIAL_RXSBYTE02:;(14,6)							;6
+ 	
+ 	;--- 判断一开始如果为[低电平()]就报错 ---
+	JB	PIN_ESAM_RX,SERIAL_RXBYTE02_START					;4	
+	MOV	R7,#CONST_STATE_SERIALACCPET					;2	
+	JMP	SERIAL_RXBYTE02_OVER						;4	
+	
+SERIAL_RXBYTE02_START:
+	JNB	BIT_SERIALOVERTIMERX,SERIAL_RXBYTE02_SEARCHSTARTLIMITLESS		;无限等待接收
+	
+	JNB	BIT_SERFIRBYTE,SERIAL_RXBYTE02_SECONDBYTE
+	CLR	BIT_SERFIRBYTE	
+	;--- 有限时间内搜索串口起启位 ---
+	;在24.576M下串口第一个字节设定为要检索100MS = 2456700/(FF*FF) = 38=26H
+	MOV	R0,#XDATA_SOFTFIRSTSCANTIME
+		;MOVX	A,@R0
+	MOV	DPH,#1
+	MOV	DPL,R0
+	MOVX	A,@DPTR
+	MOV	R0,A
+	;MOV	R0,#255
+	;~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	;mov	A,#11
+	;JMP	_FUN_TEST_DISPLAY
+	;~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	;MOV	R0,#CONST_SOFTFIRSTSCANTIME								;			
+	MOV	R1,#0FFH							;2
+	MOV	R2,#0FFH							;2			
+SERIAL_RXBYTE02_SEARCHSTARTLIMITE:						
+	JNB	PIN_ESAM_RX,SERIAL_RXBYTE02_BYTE					;4			
+	DJNZ	R2,SERIAL_RXBYTE02_SEARCHSTARTLIMITE				;4				
+	DJNZ	R1,SERIAL_RXBYTE02_SEARCHSTARTLIMITE				;4			
+	DJNZ	R0,SERIAL_RXBYTE02_SEARCHSTARTLIMITE				;4	
+	;~~~~~~~~~~~~~~~~~~~~~~~
+	;CALL	_FUN_TEST_BEEP
+	;~~~~~~~~~~~~~~~~~~~~~~~	
+	JMP	SERIAL_RXBYTE02_STARTOVERTIME	
+	
+SERIAL_RXBYTE02_SECONDBYTE:
+	;--- 有限时间内搜索串口起启位 ---
+	MOV	R0,#3						;2			
+	MOV	R1,#0FFH							;2
+SERIAL_RXBYTE02_SEARCHSECONDLIMITE:						
+	JNB	PIN_ESAM_RX,SERIAL_RXBYTE02_BYTE					;4			
+	DJNZ	R1,SERIAL_RXBYTE02_SEARCHSECONDLIMITE				;4			
+	DJNZ	R0,SERIAL_RXBYTE02_SEARCHSECONDLIMITE				;4			
+	
+	;~~~~~~~~~~~~~~~~~~~~~~~
+	;CALL	_FUN_TEST_BEEP
+	;~~~~~~~~~~~~~~~~~~~~~~~
+
+SERIAL_RXBYTE02_STARTOVERTIME:							
+	MOV	R7,#CONST_STATE_SERIALOVERTIME					;2串口接收超时	
+	JMP	SERIAL_RXBYTE02_OVER						;4
+
+	;--- 有限时间内搜索串口起启位 ---					
+SERIAL_RXBYTE02_SEARCHSTARTLIMITLESS:
+	JB	PIN_ESAM_RX,SERIAL_RXBYTE02_SEARCHSTARTLIMITLESS			;4  ;无限等待接收
+
+	;--- 开始接收数据 ---
+SERIAL_RXBYTE02_BYTE:;4
+ 	;---CALL	_FUN_SERIAL_BITSPACEHALF_12				;延时半位
+ 	CALL	_FUN_LIB_DELAY52						;64-12=52
+ 	NOP									;1
+ 	NOP									;1
+	JNB	PIN_ESAM_RX,SERIAL_RXBYTE02_ACCEPTBYTE				;4为低则继续执行，为高则报错
+;-------
+	MOV	R7,#CONST_STATE_ACCEPTOVER					;2 接收出错
+	
+	NOP									;1
+	JMP	SERIAL_RXBYTE02_OVER						;4 退出接收程序
+	
+SERIAL_RXBYTE02_ACCEPTBYTE:							;
+	MOV	A,#80H								;2
+	NOP									;1
+	NOP									;1
+SERIAL_RXBYTE02_ACCEPTBYTELOOP:
+	;---CALL	_FUN_SERIAL_BITSPACEFULL_8				;延时一位	
+	CALL	_FUN_LIB_DELAY119						;127-8=119	
+	
+	NOP									;1	
+	MOV	C,PIN_ESAM_RX							;3
+;-------
+	RRC	A								;1
+	JNC	SERIAL_RXBYTE02_ACCEPTBYTELOOP					;3
+
+	;--- 是否有检验位 ---
+	JNB	BIT_VERIFY,SERIAL_RXBYTE02_STOP					;4
+	;---CALL	_FUN_SERIAL_BITSPACEFULL_12				;延时一位
+	CALL	_FUN_LIB_DELAY113						;127-13=114		
+	NOP									;1
+	NOP	
+	MOV	C,PIN_ESAM_RX							;3
+;-------
+	JB	P,SERIAL_RXBYTE02_VERIFY						;4	
+;P = Low
+	MOV	P,C								;2
+	JB	P,SERIAL_RXBYTE02_VERIFYER					;4
+	JMP	SERIAL_RXBYTE02_STOPVERIFY					;4
+SERIAL_RXBYTE02_VERIFY:
+;P = High
+	MOV	P,C	
+	
+	NOP
+	NOP
+	NOP
+	NOP
+	
+	JB	P,SERIAL_RXBYTE02_STOPVERIFY					;4	
+	
+	;接收到的检验位出错
+SERIAL_RXBYTE02_VERIFYER:		
+ 	;---CALL	_FUN_SERIAL_BITSPACEFULL_12				;延时一位
+	;---CALL	_FUN_LIB_DELAY115						;127-12=115		 	
+ 	;---JB	PIN_ESAM_RX,SERIAL_RXBYTE02_SUCCEED				;4	判断停止位是否为高
+	;---JMP	SERIAL_RXBYTE02_STOPER						;4
+ 	MOV	R7,#CONST_STATE_SERIALACCPET
+ 	JMP	SERIAL_RXBYTE02_OVER	
+
+	;接收到的检验位成功
+SERIAL_RXBYTE02_STOPVERIFY:
+ 	;---CALL	_FUN_SERIAL_BITSPACEFULL_20				;延时一位
+	;判断停止位是否为高
+	;---CALL	_FUN_LIB_DELAY107					;127-20=107		 	
+	CALL	_FUN_LIB_DELAY54
+ 	JB	PIN_ESAM_RX,SERIAL_RXBYTE02_SUCCEED				;4	判断停止位是否为高	
+	CALL	_FUN_LIB_DELAY20
+ 	JB	PIN_ESAM_RX,SERIAL_RXBYTE02_SUCCEED				;4	判断停止位是否为高
+	CALL	_FUN_LIB_DELAY20
+ 	JB	PIN_ESAM_RX,SERIAL_RXBYTE02_SUCCEED				;4	判断停止位是否为高
+ 	JMP	SERIAL_RXBYTE02_STOPER
+
+	;无检验返回
+SERIAL_RXBYTE02_STOP:
+ 	;---CALL	_FUN_SERIAL_BITSPACEFULL_12				;延时一位
+	;CALL	_FUN_LIB_DELAY115						;127-12=115	
+	;为了给上层调用留下足够的时间，停止位采样点，设在停止位起启在10个周期
+	; 64-12+10=62 
+	CALL	_FUN_LIB_DELAY62
+	;CALL	_FUN_LIB_DELAY53
+ 	JB	PIN_ESAM_RX,SERIAL_RXBYTE02_SUCCEED				;4	判断停止位是否为高
+	CALL	_FUN_LIB_DELAY20
+ 	JB	PIN_ESAM_RX,SERIAL_RXBYTE02_SUCCEED				;4	判断停止位是否为高
+	CALL	_FUN_LIB_DELAY20
+ 	JB	PIN_ESAM_RX,SERIAL_RXBYTE02_SUCCEED				;4	判断停止位是否为高
+;-------	
+SERIAL_RXBYTE02_STOPER:
+	MOV	R7,#CONST_STATE_SERIALACCPET					;2
+	JMP	SERIAL_RXBYTE02_OVER						;4
+	
+SERIAL_RXBYTE02_SUCCEED:								;
+;	CALL	_FUN_SERIAL_BITSPACEHALF_44					;	延时半位
+	MOV	R7,#CONST_STATE_TRUE						;2
+SERIAL_RXBYTE02_OVER:	
+	MOV	R5,A							;
+
+	RET	
+	END
+
+

@@ -1,0 +1,1616 @@
+A51 MACRO ASSEMBLER  CC1101                                                               10/09/2016 12:08:02 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.00d
+OBJECT MODULE PLACED IN CC1101.OBJ
+ASSEMBLER INVOKED BY: C:\Keil\C51\BIN\A51.EXE CC1101.asm SET(SMALL) DEBUG EP
+
+LOC  OBJ            LINE     SOURCE
+
+                       1     NAME    CC1101
+                       2             
+                       3     ;--------------------------------------------------------------------------
+                       4     ;_FUN_CC1101_RESET              ¸´Î»
+                       5     ;_FUN_CC1101_INIT               ³õÊ¼»¯ CC1101
+                       6     ;_FUN_CC1101_SetWakeUpTime      ³õÊ¼»¯1101»½ÐÑÊ±¼ä
+                       7     ;_FUN_CC1101_RVOn               ´ò¿ª½ÓÊÕ        
+                       8     ;_FUN_CC1101_RVOff              ¹Ø±Õ½ÓÊÕ
+                       9     ;_FUN_CC1101_RVWR               »Ø¶Á
+                      10     ;_FUN_CC1101_Idle               ÉèÖÃµ±Ç°Îª¿ÕÏÐ×´Ì¬
+                      11     ;_FUN_CC1101_WakeUP             ÉèÖÃµ±Ç°Îª»½ÐÑ×´Ì¬
+                      12     ;_FUN_CC1101_spioSoft           
+                      13     ;_FUN_CC1101_spioSingleSoft     
+                      14     ;--------------------------------------------------------------------------
+                      15     ;$include (CC1101.INC)
+                +1    16     ;---¶Î¶¨Òå---
+                +1    17     ?pr?CC1101?Mater                        SEGMENT CODE
+                +1    18     ?co?CC1101?FLASHSTR                     SEGMENT CODE
+                +1    19             
+                +1    20     EXTRN   XDATA(XDATA_TXBUF)
+                +1    21     extrn   xdata(XDATA_433rxnum)
+                +1    22     EXTRN   CODE(ap_start)
+                +1    23     EXTRN   CODE(GSM_SerialINTRX_RXRight)
+                +1    24     ;EXTRN  CODE(SLEEP)
+                +1    25     EXTRN   BIT(BIT_5823RX_flag)
+                +1    26     EXTRN   CODE(_fun_test_display)
+                +1    27     EXTRN   CODE(_fun_lib_delay)
+                +1    28     extrn   code(_FUN_TEST_UARTDISPLAY)
+                +1    29     extrn   bit(BIT_BUFADDR)
+                +1    30     extrn   code(_FUN_ContactIssue_INIT02)
+                +1    31     PUBLIC  _FUN_CC1101_RESET               ;¸´Î»
+                +1    32     PUBLIC  _FUN_CC1101_INIT                ;³õÊ¼»¯ CC1101
+                +1    33     PUBLIC  _FUN_CC1101_SetWakeUpTime       ;³õÊ¼»¯1101»½ÐÑÊ±¼ä
+                +1    34     PUBLIC  _FUN_CC1101_RVOn                ;´ò¿ª½ÓÊÕ       
+                +1    35     PUBLIC  _FUN_CC1101_RVOff               ;¹Ø±Õ½ÓÊÕ
+                +1    36     PUBLIC  _FUN_CC1101_RVWR                ;»Ø¶Á
+                +1    37     PUBLIC  _FUN_CC1101_Idle                ;ÉèÖÃµ±Ç°Îª¿ÕÏÐ×´Ì¬
+                +1    38     PUBLIC  _FUN_CC1101_WakeUP              ;ÉèÖÃµ±Ç°Îª»½ÐÑ×´Ì¬
+                +1    39     PUBLIC  _FUN_CC1101_RX
+                +1    40     PUBLIC  _FUN_CC1101_spioSoftRXCC1101RXCC1101
+                +1    41     public  _FUN_CC1101_RVWR02
+                +1    42     public  _FUN_CC1101_CZ
+                +1    43             
+----            +1    44     RSEG    ?co?CC1101?FLASHSTR
+0000            +1    45     STR_CC1101_Input:       ;¿ª»ú
+0000 15         +1    46             DB      21
+                +1    47     
+                +1    48             
+                      49     
+                      50     ;$include (COMMON.INC)
+                +1    51             
+  009C          +1    52     BRT                                     EQU     09CH
+  009C          +1    53     Reg_Sys_BRT                             EQU     09CH
+                +1    54     ;RegBit_SysBRT_S1BRS                    BIT     Reg_Sys_BRT.1
+                +1    55     
+  009A          +1    56     S2CON                                   EQU     09AH
+  009B          +1    57     S2BUF                                   EQU     09BH
+  00AF          +1    58     IE2                                     EQU     0AFH
+A51 MACRO ASSEMBLER  CC1101                                                               10/09/2016 12:08:02 PAGE     2
+
+  00EA          +1    59     RELOAD2_CONTR                           EQU     0EAH
+                +1    60             
+  0001          +1    61     CONST_TIMEER02                          EQU     1       ;Ò»ÖÜ6Ãë
+  00FE          +1    62     CONST_TIMEER03                          EQU     254;245
+  0001          +1    63     CONST_TIMEER04                          EQU     1
+                +1    64     
+  00A2          +1    65     REG_51_AUXR1                            EQU     0A2H
+  00AE          +1    66     EPCAI                                   BIT     IE.6
+                +1    67     ;//////////////////////////////////////////////////////////////////////////////////////////
+                             ///////
+                +1    68     ;NEW LCD
+                +1    69     ;PIN_Sys_IsDownload                     BIT     P3.7
+                +1    70     ;PIN_LCD_OLEDD1                         BIT     P1.2
+                +1    71     ;PIN_LCD_OLEDD0                         BIT     P1.3
+                +1    72     ;PIN_LCD_OLEDDC                         BIT     P1.4
+                +1    73     ;PIN_LCD_OLEDRES                        BIT     P1.5
+                +1    74     ;PIN_LCD_OLEDCS                         BIT     P4.3
+                +1    75     ;PIN_LCD_BG                             BIT     P1.1
+                +1    76     ;PIN_OLED_ENSY7208                      BIT     P4.0
+  00C0          +1    77     P4                                      EQU     0C0H
+                +1    78     ;------------------------------------------------------------------------------------------
+                             -----
+  0005          +1    79     CONST_MAX_RXNUM                         EQU     5
+                +1    80     ;TI_CCxxx0_SRES                         EQU     30H
+                +1    81     ;Configuration Registers                
+  0046          +1    82     CONST_GDO2_VALUE                        EQU     46h;046H        ;06H
+  0002          +1    83     CONST_GDO2_MCSM2                        EQU     2;03H
+  00C0          +1    84     read_burst                              EQU     0C0H
+  0000          +1    85     TI_CCxxx0_IOCFG2                        EQU     00H        ;GDO2 output pin configuration
+  0001          +1    86     TI_CCxxx0_IOCFG1                        EQU     01H        ;GDO1 output pin configuration
+  0002          +1    87     TI_CCxxx0_IOCFG0                        EQU     02H        ;GDO0 output pin configuration
+  0003          +1    88     TI_CCxxx0_FIFOTHR                       EQU     03H        ;RX FIFO and TX FIFO thresholds
+  0004          +1    89     TI_CCxxx0_SYNC1                         EQU     04H        ;Sync word, high byte
+  0005          +1    90     TI_CCxxx0_SYNC0                         EQU     05H        ;Sync word, low byte
+  0006          +1    91     TI_CCxxx0_PKTLEN                        EQU     06H        ;Packet length
+  0007          +1    92     TI_CCxxx0_PKTCTRL1                      EQU     07H        ;Packet automation control
+  0008          +1    93     TI_CCxxx0_PKTCTRL0                      EQU     08H        ;Packet automation control
+  0009          +1    94     TI_CCxxx0_ADDR                          EQU     09H        ;Device address
+  000A          +1    95     TI_CCxxx0_CHANNR                        EQU     0AH        ;Channel number
+  000B          +1    96     TI_CCxxx0_FSCTRL1                       EQU     0BH        ;Frequency synthesizer control
+  000C          +1    97     TI_CCxxx0_FSCTRL0                       EQU     0CH        ;Frequency synthesizer control
+  000D          +1    98     TI_CCxxx0_FREQ2                         EQU     0DH        ;Frequency control word, high by
+                             te
+  000E          +1    99     TI_CCxxx0_FREQ1                         EQU     0EH        ;Frequency control word, middle 
+                             byte
+  000F          +1   100     TI_CCxxx0_FREQ0                         EQU     0FH        ;Frequency control word, low byt
+                             e
+  0010          +1   101     TI_CCxxx0_MDMCFG4                       EQU     10H        ;Modem configuration
+  0011          +1   102     TI_CCxxx0_MDMCFG3                       EQU     11H        ;Modem configuration
+  0012          +1   103     TI_CCxxx0_MDMCFG2                       EQU     12H        ;Modem configuration
+  0013          +1   104     TI_CCxxx0_MDMCFG1                       EQU     13H        ;Modem configuration
+  0014          +1   105     TI_CCxxx0_MDMCFG0                       EQU     14H        ;Modem configuration
+  0015          +1   106     TI_CCxxx0_DEVIATN                       EQU     15H        ;Modem deviation setting
+  0016          +1   107     TI_CCxxx0_MCSM2         EQU     16H        ;Main Radio Cntrl State Machine config
+  0017          +1   108     TI_CCxxx0_MCSM1         EQU     17H        ;Main Radio Cntrl State Machine config
+  0018          +1   109     TI_CCxxx0_MCSM0         EQU     18H        ;Main Radio Cntrl State Machine config
+  0019          +1   110     TI_CCxxx0_FOCCFG        EQU     19H        ;Frequency Offset Compensation config
+  001A          +1   111     TI_CCxxx0_BSCFG         EQU     1AH        ;Bit Synchronization configuration
+  001B          +1   112     TI_CCxxx0_AGCCTRL2      EQU     1BH        ;AGC control
+  001C          +1   113     TI_CCxxx0_AGCCTRL1      EQU     1CH        ;AGC control
+  001D          +1   114     TI_CCxxx0_AGCCTRL0      EQU     1DH        ;AGC control
+  001E          +1   115     TI_CCxxx0_WOREVT1       EQU     1EH        ;High byte Event 0 timeout
+  001F          +1   116     TI_CCxxx0_WOREVT0       EQU     1FH        ;Low byte Event 0 timeout
+  0020          +1   117     TI_CCxxx0_WORCTRL       EQU     20H        ;Wake On Radio control
+  0021          +1   118     TI_CCxxx0_FREND1        EQU     21H        ;Front end RX configuration
+  0022          +1   119     TI_CCxxx0_FREND0        EQU     22H        ;Front end TX configuration
+A51 MACRO ASSEMBLER  CC1101                                                               10/09/2016 12:08:02 PAGE     3
+
+  0023          +1   120     TI_CCxxx0_FSCAL3        EQU     23H        ;Frequency synthesizer calibration
+  0024          +1   121     TI_CCxxx0_FSCAL2        EQU     24H        ;Frequency synthesizer calibration
+  0025          +1   122     TI_CCxxx0_FSCAL1        EQU     25H        ;Frequency synthesizer calibration
+  0026          +1   123     TI_CCxxx0_FSCAL0        EQU     26H        ;Frequency synthesizer calibration
+  0027          +1   124     TI_CCxxx0_RCCTRL1       EQU     27H        ;RC oscillator configuration
+  0028          +1   125     TI_CCxxx0_RCCTRL0       EQU     28H        ;RC oscillator configuration
+  0029          +1   126     TI_CCxxx0_FSTEST        EQU     29H        ;Frequency synthesizer cal control
+  002A          +1   127     TI_CCxxx0_PTEST         EQU     2AH        ;Production test
+  002B          +1   128     TI_CCxxx0_AGCTEST       EQU     2BH        ;AGC test
+  002C          +1   129     TI_CCxxx0_TEST2         EQU     2CH        ;Various test settings       
+  002D          +1   130     TI_CCxxx0_TEST1         EQU     2DH        ;Various test settings
+  002E          +1   131     TI_CCxxx0_TEST0         EQU     2EH        ;Various test settings
+                +1   132     
+                +1   133     ;Strobe commands
+  0030          +1   134     TI_CCxxx0_SRES          EQU     30H        ;Reset chip.
+  0032          +1   135     TI_CCxxx0_SXOFF         EQU     32H        ;Turn off crystal oscillator.
+  0033          +1   136     TI_CCxxx0_SCAL          EQU     33H        ;Calibrate freq synthesizer & disable
+  0034          +1   137     TI_CCxxx0_SRX           EQU     34H        ;Enable RX.
+  0035          +1   138     TI_CCxxx0_STX           EQU     35H        ;Enable TX.
+  0036          +1   139     TI_CCxxx0_SIDLE         EQU     36H        ;Exit RX / TX
+  0037          +1   140     TI_CCxxx0_SAFC          EQU     37H        ;AFC adjustment of freq synthesizer
+  0038          +1   141     TI_CCxxx0_SWOR          EQU     38H        ;Start automatic RX polling sequence
+  0039          +1   142     TI_CCxxx0_SPWD          EQU     39H        ;Enter pwr down mode when CSn goes hi
+  003A          +1   143     TI_CCxxx0_SFRX          EQU     3AH        ;Flush the RX FIFO buffer.
+  003B          +1   144     TI_CCxxx0_SFTX          EQU     3BH        ;Flush the TX FIFO buffer.
+  003C          +1   145     TI_CCxxx0_SWORRST       EQU     3CH        ;Reset real time clock.
+  003D          +1   146     TI_CCxxx0_SNOP          EQU     3DH        ;No operation.
+                +1   147             
+                +1   148     ;Status_registers
+  0030          +1   149     TI_CCxxx0_PARTNUM                       EQU     30H        ;Part number
+  0031          +1   150     TI_CCxxx0_VERSION                       EQU     31H        ;Current version number
+  0032          +1   151     TI_CCxxx0_FREQEST                       EQU     32H        ;Frequency offset estimate
+  0033          +1   152     TI_CCxxx0_LQI                           EQU     33H        ;Demodulator estimate for link q
+                             uality
+  0034          +1   153     TI_CCxxx0_RSSI                          EQU     34H        ;Received signal strength indica
+                             tion
+  0035          +1   154     TI_CCxxx0_MARCSTATE                     EQU     35H        ;Control state machine state
+  0036          +1   155     TI_CCxxx0_WORTIME1                      EQU     36H        ;High byte of WOR timer
+  0037          +1   156     TI_CCxxx0_WORTIME0                      EQU     37H        ;Low byte of WOR timer
+  0038          +1   157     TI_CCxxx0_PKTSTATUS                     EQU     38H        ;Current GDOx status and packet 
+                             status
+  0039          +1   158     TI_CCxxx0_VCO_VC_DAC                    EQU     39H        ;Current setting from PLL cal mo
+                             dule
+  003A          +1   159     TI_CCxxx0_TXBYTES                       EQU     3AH        ;Underflow and # of bytes in TXF
+                             IFO
+  003B          +1   160     TI_CCxxx0_RXBYTES                       EQU     3BH        ;Overflow and # of bytes in RXFI
+                             FO
+  007F          +1   161     TI_CCxxx0_NUM_RXBYTES                   EQU     7FH        ;Mask "# of bytes" field in _RXB
+                             YTES
+                +1   162             
+                +1   163     ;Other memory locations
+  003E          +1   164     TI_CCxxx0_PATABLE                       EQU     3EH
+  003F          +1   165     TI_CCxxx0_TXFIFO                        EQU     3FH
+  003F          +1   166     TI_CCxxx0_RXFIFO                        EQU     3FH
+                +1   167             
+  0082          +1   168     PIN_WAVE_RX                             BIT     p0.2;P2.0;p0.1;p1.0
+  00B4          +1   169     PIN_OUTPUT_CLK                          BIT     P3.4;P1.0
+  008F          +1   170     REG_WAKE_CLK0                           EQU     08FH
+  000F          +1   171     CONST_DATA_VALUE1                       EQU     15;20;20;20
+  00DE          +1   172     CONST_DATA_VALUE2                       EQU     208+14;14;255;208+14;14
+                +1   173     ;------------------------------------------------------------------------------------------
+                             -----
+                +1   174     ;µçÔ´¿ØÖÆ
+  0095          +1   175     PIN_PWRDWN_LCD                          BIT     p1.5;p1.3        
+  00A4          +1   176     Pin_pwrdwn                              BIT     p2.4;P2.7        
+  00A3          +1   177     PIN_PWR_GSM                             BIT     p2.3;P2.4        
+A51 MACRO ASSEMBLER  CC1101                                                               10/09/2016 12:08:02 PAGE     4
+
+                +1   178             
+                +1   179     ;--- Active ---
+  00B5          +1   180     Pin_unfix                               BIT     P3.5     
+  00B3          +1   181     PIN_card_exist                          BIT     p3.3    
+  00B2          +1   182     WKO_BK                                  BIT     P3.2     
+  0095          +1   183     PIN_PWR_LOWIO                           BIT     p1.5;P2.1        
+                +1   184             
+                +1   185     ;--- ESAM ---
+  0083          +1   186     PIN_ESAM_TX                             BIT     p0.3;P2.6        
+  0083          +1   187     PIN_ESAM_RX                             BIT     p0.3;P2.6        
+  0085          +1   188     PIN_ESAM_RST                            BIT     p0.5;P2.5        
+                +1   189             
+                +1   190     ;--- Éù¹â¿ØÖÆ ---
+  00C5          +1   191     Pin_Red                                 BIT     p4.5;P4.1        
+  00C4          +1   192     Pin_Gre                                 BIT     p4.4;P4.5
+                +1   193     
+  0095          +1   194     PIN_BELL_01                             BIT     p1.5;P0.3        
+  0095          +1   195     PIN_BELL_02                             BIT     p1.5;P0.2        
+                +1   196             
+                +1   197     ;--- CC1101 ---
+                +1   198     ;Pin_CC1101_SS                          BIT     p3.6     
+                +1   199     ;PIN_CC1101_SCLK                                BIT     P2.2     
+                +1   200     ;PIN_CC1101_MOSI                                BIT     P2.3     
+                +1   201     ;PIN_CC1101_MISO                                BIT     p3.7     
+                +1   202     ;PIN_CC1101_GDO2                                BIT     P1.6     
+                +1   203             
+                +1   204     ;--- Òº¾§Ò½Å ---
+  0095          +1   205     Pin_LCD_CS                              BIT     p1.5;p1.4        
+  0095          +1   206     Pin_LCD_RST                             BIT     P1.5;    
+  0095          +1   207     Pin_LCD_DC                              BIT     p1.5;p1.7       
+  0095          +1   208     Pin_LCD_SCL                             BIT     p1.5;p3.4       
+  0095          +1   209     Pin_LCD_SDA                             BIT     p1.5;p4.3       
+                +1   210             
+                +1   211     ;--- 522 ---
+  0087          +1   212     PIN_522_SCLK                            BIT     P0.7;P0.7        
+  00C6          +1   213     PIN_522_MOSI                            BIT     p4.6;P0.5        
+  00C1          +1   214     PIN_522_MISO                            BIT     p4.1;P0.4        
+  0086          +1   215     Pin_522_SS                              BIT     P0.6;P0.6        
+  0084          +1   216     Pin_522_RST                             BIT     p0.4;P4.6        
+                +1   217             
+  00B0          +1   218     PIN_SOFTSERIALRX                        BIT     P3.0     
+  00B1          +1   219     PIN_SOFTSERIALTXH                       BIT     P3.1     
+                +1   220             
+  0095          +1   221     PIN_PWR_SE                              BIT     p1.5    ;p2.2   ; P2.4  ;       [ GSM ] 
+  0095          +1   222     Pin_SW                                  BIT     p1.5    
+                +1   223             
+                +1   224             
+                +1   225     ;fu dand wei
+  00A6          +1   226     Pin_ES_Rst                              BIT     p2.6;P2.3       ;p4.0;P4.4      ; P4.4  
+  00B4          +1   227     PIN_SE_IO1                              BIT     p3.4;p2.4       ;P4.4;p2.3;p4.4;P2.2    ; P
+                             0.5
+                +1   228             
+                +1   229             
+                +1   230     ;--- CC1101 ---
+  0097          +1   231     PIN_UART2_TX                            BIT     p1.7    ;p3.6   ; P3.7
+  0096          +1   232     PIN_UART2_RX                            BIT     P1.6    ; 
+                +1   233             
+  0000          +1   234     BUSY                                    BIT     20H.0
+                +1   235     ;////////////////////////////////////////////////Ò½Å¶¨Òå///////////////////////////////////
+                             //////////////
+                +1   236     ;ÉèÎª¸ß
+  0091          +1   237     PIN_BK_CE                               BIT     p1.1     
+  0090          +1   238     Pin_5823BK_CS                           BIT     P1.0
+                +1   239     ;Éè³ÉÊäÈëÎª¸ß                           
+  0080          +1   240     Pin_5823BK_MISO                         BIT     p0.0     
+  0092          +1   241     Pin_5823BK_IRQ                          BIT     p1.2      
+A51 MACRO ASSEMBLER  CC1101                                                               10/09/2016 12:08:02 PAGE     5
+
+                +1   242     ;   Éè ³É µÍ
+  0081          +1   243     Pin_5823BK_MOSI                         BIT     p0.1     
+  00C2          +1   244     Pin_5823BK_SCLK                         BIT     p4.2     
+                +1   245      
+  0082          +1   246     PIN_WAVE_CHANNEL1                       BIT     p0.2;P2.0        
+                +1   247      
+                +1   248     ;=====================================================================================
+  008F          +1   249     Reg_WakeClk0                            EQU     08fH
+  00DC          +1   250     Reg_WakeClk_04                          BIT     CCON.4  ;P3.4
+  00DD          +1   251     Reg_WakeClk_05                          BIT     CCON.5  ;P3.5
+                +1   252     ;ÉùÃ÷STC12C5628AD ÏµÁÐ MCU ÌØÊâ¹¦ÄÜ¼Ä´æÆ÷µØÖ·
+  00B7          +1   253     IPH EQU 0B7H ;ÖÐ¶ÏÓÅÏÈ¼¶¸ßÎ»¼Ä´æÆ÷
+  00AE          +1   254     EPCA_LVD EQU IE.6 ;PCA ÖÐ¶ÏºÍ LVD(µÍÑ¹¼ì²â)ÖÐ¶Ï¹²ÏíµÄ×ÜÖÐ¶Ï¿ØÖÆÎ»
+  00F9          +1   255     CH EQU 0F9H ;PCA ¼ÆÊÆ÷¸ß8 Î»¡£
+  00E9          +1   256     CL EQU 0E9H ;PCA ¼ÆÊÆ÷µÍ8 Î»¡£
+                +1   257     
+                +1   258     ;------------------------
+  00D8          +1   259     CCON EQU 0D8H ;PCA ¿ØÖÆ¼Ä´æÆ÷¡£
+  00D8          +1   260     CCF0 EQU CCON.0 ;PCA Ä£¿é0 ÖÐ¶Ï±êÖ¾, ÓÉÓ²¼þÖÃÎ», ±ØÐëÓÉÈí¼þÇå0¡£
+  00D9          +1   261     CCF1 EQU CCON.1 ;PCA Ä£¿é1 ÖÐ¶Ï±êÖ¾, ÓÉÓ²¼þÖÃÎ», ±ØÐëÓÉÈí¼þÇå0¡£
+  00DA          +1   262     CCF2 EQU CCON.2 ;PCA Ä£¿é2 ÖÐ¶Ï±êÖ¾, ÓÉÓ²¼þÖÃÎ», ±ØÐëÓÉÈí¼þÇå0¡£
+  00DB          +1   263     CCF3 EQU CCON.3 ;PCA Ä£¿é3 ÖÐ¶Ï±êÖ¾, ÓÉÓ²¼þÖÃÎ», ±ØÐëÓÉÈí¼þÇå0¡£
+  00DC          +1   264     CCF4 EQU CCON.4 ;PCA Ä£¿é4 ÖÐ¶Ï±êÖ¾, ÓÉÓ²¼þÖÃÎ», ±ØÐëÓÉÈí¼þÇå0¡£
+  00DD          +1   265     CCF5 EQU CCON.5 ;PCA Ä£¿é5 ÖÐ¶Ï±êÖ¾, ÓÉÓ²¼þÖÃÎ», ±ØÐëÓÉÈí¼þÇå0¡£
+  00DE          +1   266     CR EQU CCON.6 ;1:ÔÊÐí PCA ¼ÆÊÆ÷¼ÆÊ, ±ØÐëÓÉÈí¼þÇå0¡£
+  00DF          +1   267     CF EQU CCON.7 ;PCA ¼ÆÊÆ÷Òç³ö(CH,CL ÓÉ FFFFH ±äÎª 0000H)±êÖ¾,
+                +1   268     ;PCA ¼ÆÊÆ÷Òç³öºóÓÉÓ²¼þÖÃÎ»,±ØÐëÓÉÈí¼þÇå0¡£
+                +1   269     ;------------------------
+  00D9          +1   270     CMOD EQU 0D9H ;PCA ¹¤×÷Ä£Ê½¼Ä´æÆ÷¡£
+                +1   271     
+                +1   272     ;CMOD.7 CIDL: idle ×´Ì¬Ê± PCA ¼ÆÊÆ÷ÊÇ·ñ¼ÌÐø¼ÆÊ, 0: ¼ÌÐø¼ÆÊ, 1: Í£Ö¹¼ÆÊ¡£
+                +1   273     ;CMOD.2 CPS1: PCA ¼ÆÊÆ÷¼ÆÊÂö³åÔ´Ñ¡ÔñÎ» 1¡£
+                +1   274     ;CMOD.1 CPS0: PCA ¼ÆÊÆ÷¼ÆÊÂö³åÔ´Ñ¡ÔñÎ» 0¡£
+                +1   275     ; CPS1 CPS0
+                +1   276     ; 0 0 Íâ²¿¾§ÌåÆµÂÊ/12¡£
+                +1   277     ; 0 1 Íâ²¿¾§ÌåÆµÂÊ/2¡£
+                +1   278     ; 1 0 Timer 0 Òç³öÂö³å£¬
+                +1   279     ; Timer 0 »¹¿ÉÍ¨¹ AUXR ¼Ä´æÆ÷ÉèÖÃ³É¹¤×÷ÔÚ 12T »ò 1T Ä£Ê½¡£
+                +1   280     ; 1 1 ´Ó ECI/P3.4 ½ÅÊäÈëµÄÍâ²¿Ê±ÖÓ¡£
+                +1   281     ;CMOD.0 ECF: PCA ¼ÆÊÆ÷Òç³öÖÐ¶ÏÔÊÐíÎ», 1-- ÔÊÐí CF(CCON.7) ²úÉúÖÐ¶Ï¡£
+                +1   282     ;------------------------
+  00FA          +1   283     CCAP0H EQU 0FAH ;PCA Ä£¿é0 µÄ²¶×½/ ±È½Ï¼Ä´æÆ÷¸ß 8 Î»¡£
+  00FB          +1   284     CCAP1H EQU 0FBH ;PCA Ä£¿é1 µÄ²¶×½/ ±È½Ï¼Ä´æÆ÷¸ß 8 Î»¡£
+  00FC          +1   285     CCAP2H EQU 0FCH ;PCA Ä£¿é2 µÄ²¶×½/ ±È½Ï¼Ä´æÆ÷¸ß 8 Î»¡£
+  00FD          +1   286     CCAP3H EQU 0FDH ;PCA Ä£¿é3 µÄ²¶×½/ ±È½Ï¼Ä´æÆ÷¸ß 8 Î»¡£
+  00FE          +1   287     CCAP4H EQU 0FEH ;PCA Ä£¿é4 µÄ²¶×½/ ±È½Ï¼Ä´æÆ÷¸ß 8 Î»¡£
+  00FF          +1   288     CCAP5H EQU 0FFH ;PCA Ä£¿é5 µÄ²¶×½/ ±È½Ï¼Ä´æÆ÷¸ß 8 Î»¡£
+  00EA          +1   289     CCAP0L EQU 0EAH ;PCA Ä£¿é0 µÄ²¶×½/ ±È½Ï¼Ä´æÆ÷µÍ 8 Î»¡£
+  00EB          +1   290     CCAP1L EQU 0EBH ;PCA Ä£¿é1 µÄ²¶×½/ ±È½Ï¼Ä´æÆ÷µÍ 8 Î»¡£
+  00EC          +1   291     CCAP2L EQU 0ECH ;PCA Ä£¿é2 µÄ²¶×½/ ±È½Ï¼Ä´æÆ÷µÍ 8 Î»¡£
+  00ED          +1   292     CCAP3L EQU 0EDH ;PCA Ä£¿é3 µÄ²¶×½/ ±È½Ï¼Ä´æÆ÷µÍ 8 Î»¡£
+  00EE          +1   293     CCAP4L EQU 0EEH ;PCA Ä£¿é4 µÄ²¶×½/ ±È½Ï¼Ä´æÆ÷µÍ 8 Î»¡£
+  00EF          +1   294     CCAP5L EQU 0EFH ;PCA Ä£¿é5 µÄ²¶×½/ ±È½Ï¼Ä´æÆ÷µÍ 8 Î»¡£
+                +1   295     ;------------------------
+  00F2          +1   296     PCA_PWM0 EQU 0F2H ;PCA Ä£¿é0 PWM ¼Ä´æÆ÷¡£
+  00F3          +1   297     PCA_PWM1 EQU 0F3H ;PCA Ä£¿é1 PWM ¼Ä´æÆ÷¡£
+  00F4          +1   298     PCA_PWM2 EQU 0F4H ;PCA Ä£¿é2 PWM ¼Ä´æÆ÷¡£
+  00F5          +1   299     PCA_PWM3 EQU 0F5H ;PCA Ä£¿é3 PWM ¼Ä´æÆ÷¡£
+  00F6          +1   300     PCA_PWM4 EQU 0F6H ;PCA Ä£¿é4 PWM ¼Ä´æÆ÷¡£
+  00F7          +1   301     PCA_PWM5 EQU 0F7H ;PCA Ä£¿é5 PWM ¼Ä´æÆ÷¡£
+                +1   302     ;PCA_PWMn: 7 6 5 4 3 2 1 0
+                +1   303     ; - - - - - - EPCnH EPCnL
+                +1   304     ;B7-B2: ±£Áô
+                +1   305     ;B1(EPCnH): ÔÚ PWM Ä£Ê½ÏÂ£¬Óë CCAPnH ×é³É 9 Î»Ê¡£
+                +1   306     ;B0(EPCnL): ÔÚ PWM Ä£Ê½ÏÂ£¬Óë CCAPnL ×é³É 9 Î»Ê¡£
+                +1   307     ;------------------------
+A51 MACRO ASSEMBLER  CC1101                                                               10/09/2016 12:08:02 PAGE     6
+
+  00DA          +1   308     CCAPM0 EQU 0DAH ;PCA Ä£¿é0 µÄ¹¤×÷Ä£Ê½¼Ä´æÆ÷¡£
+  00DB          +1   309     CCAPM1 EQU 0DBH ;PCA Ä£¿é1 µÄ¹¤×÷Ä£Ê½¼Ä´æÆ÷¡£
+  00DC          +1   310     CCAPM2 EQU 0DCH ;PCA Ä£¿é2 µÄ¹¤×÷Ä£Ê½¼Ä´æÆ÷¡£
+  00DD          +1   311     CCAPM3 EQU 0DDH ;PCA Ä£¿é3 µÄ¹¤×÷Ä£Ê½¼Ä´æÆ÷¡£
+  00DE          +1   312     CCAPM4 EQU 0DEH ;PCA Ä£¿é4 µÄ¹¤×÷Ä£Ê½¼Ä´æÆ÷¡£
+  00DF          +1   313     CCAPM5 EQU 0DFH ;PCA Ä£¿é5 µÄ¹¤×÷Ä£Ê½¼Ä´æÆ÷¡£
+                +1   314     ;CCAPMn: 7 6 5 4 3 2 1 0
+                +1   315     ; - ECOMn CAPPn CAPNn MATn TOGn PWMn ECCFn
+                +1   316     ;
+                +1   317     ;ECOMn = 1:ÔÊÐí±È½Ï¹¦ÄÜ¡£
+                +1   318     ;CAPPn = 1:ÔÊÐíÉÏÉÑØ´¥·¢²¶×½¹¦ÄÜ¡£
+                +1   319     ;CAPNn = 1:ÔÊÐíÏÂ½µÑØ´¥·¢²¶×½¹¦ÄÜ¡£
+                +1   320     ;MATn = 1:µ±Æ¥ÅäÇé¿ö·¢ÉúÊ±, ÔÊÐí CCON ÖÐµÄ CCFn ÖÃÎ»¡£
+                +1   321     ;TOGn = 1:µ±Æ¥ÅäÇé¿ö·¢ÉúÊ±, CEXn ½«·­×ª¡£
+                +1   322     ;PWMn = 1:½« CEXn ÉèÖÃÎª PWM Êä³ö¡£
+                +1   323     ;ECCFn = 1:ÔÊÐí CCON ÖÐµÄ CCFn ´¥·¢ÖÐ¶Ï¡£
+                +1   324     ;ECOMn CAPPn CAPNn MATn TOGn PWMn ECCFn
+                +1   325     ; 0 0 0 0 0 0 0 00H Î´ÆôÓÃÈÎºÎ¹¦ÄÜ¡£
+                +1   326     ; x 1 0 0 0 0 x 21H 16 Î»CEXn ÉÏÉÑØ´¥·¢²¶×½¹¦ÄÜ¡£
+                +1   327     ; x 0 1 0 0 0 x 11H 16 Î»CEXn ÏÂ½µÑØ´¥·¢²¶×½¹¦ÄÜ¡£
+                +1   328     ; x 1 1 0 0 0 x 31H 16 Î»CEXn ±ßÑØ(ÉÏ¡¢ÏÂÑØ)´¥·¢²¶×½¹¦ÄÜ¡£
+                +1   329     ; 1 0 0 1 0 0 x 49H 16 Î»Èí¼þ¶¨Ê±Æ÷¡£
+                +1   330     ; 1 0 0 1 1 0 x 4DH 16 Î»¸ßËÙÂö³åÊä³ö¡£
+                +1   331     ; 1 0 0 0 0 1 0 42H 8 Î» PWM¡£
+                +1   332     ;------------------------------------------------------------------------------
+                +1   333     ;==============================================================================
+                +1   334     ;//////////////////////////////////////////////¹«¹²¼Ä´æÆ÷ /////////////////////////////////
+                             //////////
+  00C7          +1   335     ISP_CONTR                               EQU     0C7h
+  008F          +1   336     WAKE_CLKO                               EQU     08fh
+                +1   337     ;¸½¼ÓµÄ SFR WAKE_CLKO (µØÖ·£º0x8F)
+                +1   338     ;b7 - PCAWAKEUP :1, ÔÊÐí PCA ÉÏÉÑØ / ÏÂ½µÑØÖÐ¶Ï »½ÐÑ powerdown¡£
+                +1   339     ;b6 - RXD_PIN_IE:1, ÔÊÐí P3.0(RXD) ÏÂ½µÑØÖÃ RI£¬Ò²ÄÜÊ¹ RXD »½ÐÑ powerdown¡£
+                +1   340     ;b5 - T1_PIN_IE :1, ÔÊÐí T1/P3.5 ½ÅÏÂ½µÑØÖÃ T1 ÖÐ¶Ï±êÖ¾£¬Ò²ÄÜÊ¹ T1 ½Å»½ÐÑ powerdown¡£
+                +1   341     ;b4 - T0_PIN_IE :1, ÔÊÐí T0/P3.4 ½ÅÏÂ½µÑØÖÃ T0 ÖÐ¶Ï±êÖ¾£¬Ò²ÄÜÊ¹ T0 ½Å»½ÐÑ powerdown¡£
+                +1   342     ;b3 - N/A
+                +1   343     ;b2 - N/A
+                +1   344     ;b1 - T1CLKO : ÔÊÐí T1 µÄÒç³öÔÚP1.1 ½ÅÊä³öÊ±ÖÓ£¬Êä³öÊ±ÖÓÆµÂÊ = 1/2 T1 Òç³öÂÊ
+                +1   345     ;       T1 ¹¤×÷ÔÚ1T Ä£Ê½Ê±µÄÊä³öÆµÂÊCLKOUT1 =( Fosc / 2 ) / ( 256 - TH1 )
+                +1   346     ;       T1 ¹¤×÷ÔÚ12T Ä£Ê½Ê±µÄÊä³öÆµÂÊCLKOUT1 =( Fosc / 2 ) / 12 / ( 256 - TH1 )
+                +1   347     ;b0 -   T0CLKO : ÔÊÐí T0 µÄÒç³öÔÚP1.0 ½ÅÊä³öÊ±ÖÓ£¬Êä³öÊ±ÖÓÆµÂÊ = 1/2 T0 Òç³öÂÊ
+                +1   348     ;       T0 ¹¤×÷ÔÚ1T Ä£Ê½Ê±µÄÊä³öÆµÂÊCLKOUT0 =( Fosc / 2 ) / ( 256 - TH0)
+                +1   349     ;       T0 ¹¤×÷ÔÚ12T Ä£Ê½Ê±µÄÊä³öÆµÂÊCLKOUT0 =( Fosc / 2 ) / 12 / ( 256 - TH0 )
+                +1   350     ;--------------------------------------------------------
+                +1   351     ;--------------------------------------------------------
+  0094          +1   352     REG_5412AD_P0M0                         EQU     094h;093h
+  0093          +1   353     REG_5412AD_P0M1                         EQU     093h;094h
+                +1   354     
+  0092          +1   355     REG_5412AD_P1M0                         EQU     092h;091h
+  0091          +1   356     REG_5412AD_P1M1                         EQU     091h;092h
+                +1   357     
+  0096          +1   358     REG_5412AD_P2M0                         EQU     096h;095h
+  0095          +1   359     REG_5412AD_P2M1                         EQU     095h;096h
+                +1   360     
+  00B2          +1   361     REG_5412AD_P3M0                         EQU     0b2h;0b1h
+  00B1          +1   362     REG_5412AD_P3M1                         EQU     0b1h;0b2h
+                +1   363     
+  00B4          +1   364     REG_5412AD_P4M0                         EQU     0b4h;0b3h
+  00B3          +1   365     REG_5412AD_P4M1                         EQU     0b3h;0b4h
+                +1   366     ;-------------------------------------------------------------
+  008E          +1   367     REG_5412AD_AUXR                         EQU     08EH            ;¸¨Öú¼Ä´æÆ÷
+  0085          +1   368     REG_5412AD_spctl                        EQU     085H
+  0084          +1   369     REG_5412AD_spstat                       EQU     084H
+  0086          +1   370     REG_5412AD_spdat                        EQU     086H
+  00C1          +1   371     REG_WDT_CONTR                           EQU     0C1H            ;0E1H;0C1H
+  00BB          +1   372     REG_5412AD_P4SW                         EQU     0BBH
+A51 MACRO ASSEMBLER  CC1101                                                               10/09/2016 12:08:02 PAGE     7
+
+  00AB          +1   373     REG_MCU_WKCTH                           EQU     0ABH
+  00AA          +1   374     REG_MCU_WKCTL                           EQU     0AAH    
+                +1   375     ;//////////////////////////////////////////////RC522¼Ä´æÆ÷ ////////////////////////////////
+                             ///////////////////
+  0000          +1   376     REG_RC522_RC522PAGE                     EQU     00H
+  0001          +1   377     REG_RC522_CommandReg                    EQU     01H
+  0002          +1   378     REG_RC522_ComIEnReg                     EQU     02H
+  0003          +1   379     REG_RC522_DivIEnReg                     EQU     03H
+  0004          +1   380     REG_RC522_ComIrqReg                     EQU     04H
+  0005          +1   381     REG_RC522_DivIrqReg                     EQU     05H
+  0006          +1   382     REG_RC522_ErrorReg                      EQU     06h
+  0007          +1   383     REG_RC522_Status1Reg                    EQU     07h
+  0008          +1   384     REG_RC522_Status2Reg                    EQU     08h
+  0009          +1   385     REG_RC522_FIFODataReg                   EQU     09h
+  000A          +1   386     REG_RC522_FIFOLevelReg                  EQU     0ah
+  000B          +1   387     REG_RC522_WaterLevelReg                 EQU     0bh
+  000C          +1   388     REG_RC522_ControlReg                    EQU     0ch
+  000D          +1   389     REG_RC522_BitFramingReg                 EQU     0dh
+  000E          +1   390     REG_RC522_CollReg                       EQU     0eh
+  000F          +1   391     REG_RC522_RFU                           EQU     0fh
+  0011          +1   392     REG_RC522_ModeReg                       EQU     11h
+  0012          +1   393     REG_RC522_TxModeReg                     EQU     12h
+  0013          +1   394     REG_RC522_RxModeReg                     EQU     13h
+  0014          +1   395     REG_RC522_TxControlReg                  EQU     14h
+  0015          +1   396     REG_RC522_TxAutoReg                     EQU     15h
+  0016          +1   397     REG_RC522_TxSelReg                      EQU     16h
+  0017          +1   398     REG_RC522_RxSelReg                      EQU     17h
+  0018          +1   399     REG_RC522_RxThresholdReg                EQU     18h
+  0019          +1   400     REG_RC522_DemodReg                      EQU     19h
+  001C          +1   401     REG_RC522_MifareReg                     EQU     1ch
+  001F          +1   402     REG_RC522_SerialSpeedReg                EQU     1fh
+  0021          +1   403     REG_RC522_CRCResultRegH                 EQU     21h
+  0022          +1   404     REG_RC522_CRCResultRegL                 EQU     22h
+  0024          +1   405     REG_RC522_ModWidthReg                   EQU     24h
+  0026          +1   406     REG_RC522_RFCfgReg                      EQU     26h
+  0027          +1   407     REG_RC522_GsNReg                        EQU     27h
+  0028          +1   408     REG_RC522_CWGsPReg                      EQU     28h
+  0029          +1   409     REG_RC522_ModGsPReg                     EQU     29h
+  002A          +1   410     REG_RC522_TModeReg                      EQU     2ah
+  002B          +1   411     REG_RC522_TPrescalerReg                 EQU     2bh
+  002C          +1   412     REG_RC522_TReloadRegH                   EQU     2ch
+  002D          +1   413     REG_RC522_TReloadRegL                   EQU     2dh
+  002E          +1   414     REG_RC522_TCounterValueRegH             EQU     2eh
+  002F          +1   415     REG_RC522_TCounterValueRegL             EQU     2fh
+                +1   416             
+                +1   417     ;/////////////////////////////////////////////////Ò»°ãÏµÍ³³£Á¿±í///////////////////////////
+                             //////////////////////
+  0001          +1   418     CONST_HOLD_5823TX                       EQU     1
+  0000          +1   419     CONST_HOLD_5823RX                       EQU     0
+                +1   420             
+                +1   421             
+  00FF          +1   422     CONST_SYS_TradeConfine                  EQU     255                             ;½»Ò×Ê±¼äÏÞ
+                             ÖÆ
+  000A          +1   423     CONST_SYS_PowerONTimer                  EQU     10                              ;ÉÏµç¶¨Ê±Æ÷
+                                  
+  0088          +1   424     CONST_SYS_PREFlag                       EQU     088H                            ;
+  00AA          +1   425     CONST_SYS_AA                            EQU     0AAH
+  0055          +1   426     CONST_SYS_55                            EQU     55H
+  0004          +1   427     CONST_SYS_OBUIDLEN                      EQU     4                               ;obuid ³¤¶È
+  0008          +1   428     CONST_BSTLIMIT                          EQU     8;20;10                 ;¼«ÏÞBST¸öÊ
+  0064          +1   429     CONST_BSTLIMIT02                        EQU     100
+                +1   430     
+  00FF          +1   431     CONST_VSTLIMIT                          EQU     255     ;100                    ;¼«ÏÞVST¸öÊ
+  00FA          +1   432     CONST_Pro_OverTime2S                    EQU     250                             ;³¬Ê±ÏÞÊ±£¬
+                             196-246*30=1200MS 
+                +1   433     ;/////////////////////////////////////////////////³öÈë¿Ú³£Á¿±í/////////////////////////////
+A51 MACRO ASSEMBLER  CC1101                                                               10/09/2016 12:08:02 PAGE     8
+
+                             ////////////////////
+  0003          +1   434     CONST_ETC_INPUT                         EQU     3       ;ETC Èë¿Ú
+  0001          +1   435     CONST_MTC_INPUT                         EQU     1       ;MTC Èë¿Ú
+  0001          +1   436     CONST_INPUT_ISEnable                    EQU     1;=1²»ÆôÓÃ =0ÆôÓÃ
+                +1   437     ;/////////////////////////////////////////////////×´Ì¬³£Á¿±í///////////////////////////////
+                             //////////////////
+  0000          +1   438     CONST_STATE_TRUE                        EQU     000H                            ;Ö´ÐÐ³É¹¦
+  00FF          +1   439     CONST_STATE_FALSE                       EQU     0FFH                            ;³ÌÐòÖ´ÐÐ³ö
+                             ´í
+                +1   440     ;Ò»°ãÐÔ´íÎó     01      µ¼ÈëÊ§°Ü        STR_InputFail
+                +1   441     ;ºÏÍ¬ºÅ²»Í¬     02      ·Ç·¨µ¼Èë¿¨      STR_IllegalInputCard
+                +1   442     ;Ê¹ÓÃ´ÎÊ=FFH    03      µ¼Èë¿¨Ê§Ð§      STR_InputCardInvalid
+  0001          +1   443     CONST_STATE_InputFail                   EQU     01
+  0002          +1   444     CONST_STATE_IllegalInputCard            EQU     02
+  0003          +1   445     CONST_STATE_InputCardInvalid            EQU     03
+                +1   446     ;Ò»°ãÐÔ´íÎó     04      ¼¤»îÊ§°Ü        STR_ActiveFail
+                +1   447     ;ºÏÍ¬ºÅ²»Í¬     05      ·Ç·¨¼¤»î¿¨      STR_IllegalACTCard
+                +1   448     ;Ê¹ÓÃ´ÎÊ=FFH    06      ¼¤»î¿¨Ê§Ð§      STR_ACTCardInvalid
+  0004          +1   449     CONST_STATE_ActiveFail                  EQU     04
+  0005          +1   450     CONST_STATE_IllegalACTCard              EQU     05
+  0006          +1   451     CONST_STATE_ACTCardInvalid              EQU     06
+                +1   452             
+  0007          +1   453     CONST_STATE_5823INIER                   EQU     07      ;5823³õÊ¼»¯³ö´í
+  0008          +1   454     CONST_STATE_5823SleepEr                 EQU     08      ;5823ÐÝÃß³ö´í
+  0009          +1   455     CONST_STATE_GetSecureSelFileEr          EQU     09      ;getsecureÑ¡¿¨Ä¿Â¼³ö´í
+                +1   456     
+  000A          +1   457     CONST_STATE_BaseNinit                   EQU     10      ;Baseinit02º¯Ê£¬³õÊ¼»¯¿¨Æ¬Ê§°Ü
+  000B          +1   458     CONST_STATE_BaseESAMDF01                EQU     11      ;Baseinit02º¯Ê£¬Ñ¡ESAM¿¨DF01Ê§°Ü
+                +1   459             
+  000C          +1   460     CONST_STATE_CARDPreDeal1001             EQU     12      ;Ô¤¶Á1001Ê§°Ü
+  000D          +1   461     CONST_STATE_CARDPreDeal0002             EQU     13      ;Ô¤¶Á0002Ê§°Ü
+  000E          +1   462     CONST_STATE_CARDPreDeal0012             EQU     14      ;Ô¤¶Á0012Ê§°Ü
+  000F          +1   463     CONST_STATE_CARDPreDeal0015             EQU     15      ;Ô¤¶Á0015Ê§°Ü
+  0010          +1   464     CONST_STATE_CARDPreDeal0019             EQU     16      ;Ô¤¶Á0019Ê§°Ü
+  0011          +1   465     CONST_STATE_CARDPreDeal3f00             EQU     17      ;Ô¤¶Á3f00Ê§°Ü
+  0012          +1   466     CONST_STATE_CARDPreDeal81               EQU     18      ;Ô¤¶Á81Ê§°Ü
+                +1   467             
+  0013          +1   468     CONST_STATE_BaseN01init                 EQU     19      ;Baseinitº¯Ê£¬³õÊ¼»¯¿¨Æ¬Ê§°Ü
+  0014          +1   469     CONST_STATE_Base01ESAMDF01              EQU     20      ;Baseinitº¯Ê£¬Ñ¡ESAM¿¨DF01Ê§°Ü
+                +1   470             
+  0015          +1   471     CONST_STATE_Base01Contact               EQU     21      ;Baseinitº¯Ê£¬Ìøµ½½Ó´¥
+  0016          +1   472     CONST_STATE_Base02Contact               EQU     22      ;Baseinit02º¯Ê£¬Ìøµ½½Ó´¥        
+                +1   473             
+  0017          +1   474     CONST_STATE_test                        EQU     23      ;Baseinit02º¯Ê£¬Ìøµ½½Ó´¥        
+                +1   475             
+  0018          +1   476     CONST_STATE_Base02Re                    EQU     24
+  0019          +1   477     CONST_STATE_Base02AntiColl              EQU     25
+  001A          +1   478     CONST_STATE_Base02Sel                   EQU     26
+  001B          +1   479     CONST_STATE_Base02Rats                  EQU     27
+                +1   480             
+  001C          +1   481     CONST_STATE_Base01Re                    EQU     28
+  001D          +1   482     CONST_STATE_Base01AntiColl              EQU     29
+  001E          +1   483     CONST_STATE_Base01Sel                   EQU     30
+  001F          +1   484     CONST_STATE_Base01Rats                  EQU     31      
+                +1   485             
+  0020          +1   486     CONST_STATE_MemoryEr                    EQU     32      
+  0021          +1   487     CONST_STATE_ExMemoryEr                  EQU     33      
+  0022          +1   488     CONST_STATE_ExMemoryEr02                EQU     34      
+                +1   489             
+  0001          +1   490     CONST_STATE_SERIALACCPET                EQU     001H                            ;´®¿Ú½ÓÊÕ´í
+                             Îó
+  0002          +1   491     CONST_STATE_SERIALOVERTIME              EQU     CONST_STATE_SERIALACCPET + 1    ;´®¿Ú½ÓÊÕ³¬
+                             Ê±
+  0003          +1   492     CONST_STATE_ACCEPTOVER                  EQU     CONST_STATE_SERIALOVERTIME + 1  ;´®¿Ú½ÓÊÕÍê
+                             ±Ï£¬Ã»ÓÐºóÐø×Ö½Ú 
+  0004          +1   493     CONST_STATE_ACCEPTOVERLEN               EQU     CONST_STATE_ACCEPTOVER + 1      ;´®¿Ú½ÓÊÕ³¬
+A51 MACRO ASSEMBLER  CC1101                                                               10/09/2016 12:08:02 PAGE     9
+
+                             ³¤
+  0005          +1   494     CONST_STATE_RSTCPUER                    EQU     CONST_STATE_ACCEPTOVERLEN + 1   ;¸´Î»´®¿Ú´í
+                             Îó
+  0006          +1   495     CONST_STATE_AUTHER                      EQU     CONST_STATE_RSTCPUER + 1        ;ÈÏÖ¤Ê§°Ü
+                +1   496             
+                +1   497     ;--- ¹¤×÷Çø³£Á¿¶¨Òå ---
+  0000          +1   498     CONST_WORKSTAION_0                      EQU     00H     ;¹¤×÷Çø0
+  0001          +1   499     CONST_WORKSTAION_1                      EQU     01H     ;¹¤×÷Çø1
+  0002          +1   500     CONST_WORKSTAION_2                      EQU     02H     ;¹¤×÷Çø2        
+  0003          +1   501     CONST_WORKSTAION_3                      EQU     03H     ;¹¤×÷Çø3
+                +1   502     
+                +1   503     ;//////////////////////////////////////¿¨Æ¬Âß¼­³£Á¿¶¨Òå////////////////////////////////////
+                             ////////
+  0017          +1   504     CONST_CARD_PASS                         EQU     23
+  0016          +1   505     CONST_CARD_CONSUME                      EQU     22
+                +1   506     ;//////////////////////////////////////GSM³£Á¿¶¨Òå/////////////////////////////////////////
+                             /////////
+  0002          +1   507     CONST_LHX_FLAG                          EQU     2 ;0-¹ú±êOBU  1-GSM OBU  2-433 OBU
+                +1   508     
+                +1   509     ;RTC ´ó´°Ê±¼ä                           ;6·ÖÖÓ£¬Æ½¾ùÁ½ÃëÒ»´ÎcellID
+                +1   510     ;CONST_RTCOverFlow                      EQU     144;180;180
+                +1   511     ;CONST_RTCUartRX                        EQU     24;4;8,12,16,20,24;142;
+                +1   512     
+  0090          +1   513     CONST_RTCOverFlow                       EQU     144;20;144;6;144;6;12;144
+                +1   514     ;CONST_RTCUartRX                                EQU     12
+                +1   515     ;CONST_RTCUartRX02                      EQU     142
+  0000          +1   516     CONST_Flag_INPUT                        EQU     0
+  0001          +1   517     CONST_Flag_OutPUT                       EQU     1
+                +1   518     
+                +1   519     ;GSM CellID ¼ÇÂ¼Ê¾ÝËùÔÚµÄÎÄ¼þÃû
+  0000          +1   520     CONST_Cellfile_H                        EQU     000H
+  0009          +1   521     CONST_Cellfile_L                        EQU     09h;030H
+                +1   522     
+  00EF          +1   523     CONST_ESAMCellfile_H                    EQU     0EFH;000H
+  0007          +1   524     CONST_ESAMCellfile_L                    EQU     07H;03h;030H
+                +1   525     ;CONST_Cellfile_H                       EQU     000H
+                +1   526     ;CONST_Cellfile_L                       EQU     008h
+                +1   527     
+  00F0          +1   528     CONST_GSM_MaxNum                        EQU     240
+                +1   529     ;CONST_GSM_MaxNum                       EQU     5
+                +1   530     
+  0014          +1   531     CONST_GSM_PJNum                         EQU     20
+                +1   532     ;CONST_GSM_PJNum                        EQU     1
+                +1   533     
+                +1   534     ;RTC Ð¡´°Ê±¼ä;
+  0008          +1   535     CONST_MCU_WKCTH                         EQU     008H;0fh;00fH;00fH;00fH
+  00FF          +1   536     CONST_MCU_WKCTL                         EQU     0FFH
+                +1   537     
+                +1   538     ;RTC ÊÇ·ñ¿ªÆô£¬±ê¼ÇÖµ
+                +1   539     ;=CONST_RTC_ON ±íÊ¾¿ªÆô
+                +1   540     ;= ÆäËü Ã»ÓÐ¿ªÆô
+  0055          +1   541     CONST_RTC_ON                            EQU     55H
+  00FF          +1   542     CONST_RTC_off                           EQU     0ffH
+  0064          +1   543     CONST_SYS_RTCOverTime                   EQU     100
+                +1   544     
+                +1   545     ;²å¿¨½«obuÖÐCellid¼ÇÂ¼µ¼Èëµ½¿¨Æ¬ÖÐ£¬Ò»´ÎÐ´Èëµ½¿¨Æ¬ÖÐ cellID µÄ×Ö½ÚÊ
+  0008          +1   546     CONST_GSM_NUM                           EQU     8               ;40
+                +1   547     ;//////////////////////////////////////MF³£Á¿¶¨Òå//////////////////////////////////////////
+                             ////////
+  0000          +1   548     CONST_MF_READ                           EQU     00H     ;Ö¸ÁîÀàÐÍ ¶Á¿é
+  0001          +1   549     CONST_MF_WRITE                          EQU     01H     ;Ö¸ÁîÀàÐÍ Ð´¿é
+  0002          +1   550     CONST_MF_DECREMENT                      EQU     02H     ;Ö¸ÁîÀàÐÍ ¿Û¿î
+  0003          +1   551     CONST_MF_INCREMENT                      EQU     03H     ;Ö¸ÁîÀàÐÍ ³äÖµ
+  0004          +1   552     CONST_MF_RESTOR                         EQU     04H     ;Ö¸ÁîÀàÐÍ ±¸·Ý¿é
+                +1   553     
+  00C0          +1   554     CONST_MF_RC500DECREMENT                 EQU     0C0H    ;RC500 ¿Û¿î
+A51 MACRO ASSEMBLER  CC1101                                                               10/09/2016 12:08:02 PAGE    10
+
+  00C1          +1   555     CONST_MF_RC500INCREMENT                 EQU     0C1H    ;RC500 ³äÖµ
+                +1   556     ;//////////////////////////////////////DSRC³£Á¿¶¨Òå////////////////////////////////////////
+                             //////////
+  0004          +1   557     CONST_DSRC_MACCTRL                      EQU     4       ;MAC¿ØÖÆÓò
+  0005          +1   558     CONST_DSRC_LLCCTRL                      EQU     5       ;LLC¿ØÖÆÓò
+  0006          +1   559     CONST_DSRC_HEAD                         EQU     6       ;×Ö¶Î×ÖÍ·
+  0007          +1   560     CONST_DSRC_ACTION                       EQU     7       ;Action
+  0008          +1   561     CONST_DSRC_DID                          EQU     8       ;DSRC-DID
+  0009          +1   562     CONST_DSRC_ACTIONTYPE                   EQU     9       ;ActionType
+  000A          +1   563     CONST_DSRC_CONTAIN                      EQU     10      ;Contain
+  000B          +1   564     CONST_DSRC_Fill                         EQU     11      ;Fill
+  000C          +1   565     CONST_SSRC_FID                          EQU     12      ;ÎÄ¼þ±êÊ¶£¨FID£©
+                +1   566     
+  0000          +1   567     CONST_DSRC_FildIDAPPKey                 EQU     0       ;0¨D¨DETC Ó¦ÓÃÃÜÔ¿ÎÄ¼þ
+  0001          +1   568     CONST_DSRC_FildIDVehicle                EQU     1       ;1¨D¨DETC Ó¦ÓÃ³µÁ¾ÐÅÏ¢ÎÄ¼þ
+  0002          +1   569     CONST_DSRC_FildIDConsume                EQU     2       ;2-ETC Ó¦ÓÃ½»Ò×¼ÇÂ¼ÎÄ¼þ
+  0003          +1   570     CONST_DSRC_FildIDHold                   EQU     3       ;3-ETC Ó¦ÓÃ±£ÁôÎÄ¼þ
+                +1   571     
+  0001          +1   572     CONST_DSRC_ChannelIDICC                 EQU     1
+  0002          +1   573     CONST_DSRC_ChannelIDSAM                 EQU     2
+                +1   574     ;//////////////////////////////////////AcionType³£Á¿¶¨Òå///////////////////////////////////
+                             ////////////
+  0000          +1   575     Const_ActionType_GetSecure              EQU     0       ;getSecure
+  0001          +1   576     Const_ActionType_SetSecure              EQU     1       ;setSecure
+  0002          +1   577     Const_ActionType_GetRand                EQU     2       ;getRand
+  0003          +1   578     Const_ActionType_TransferChannel        EQU     3       ;transferChannel
+  0004          +1   579     Const_ActionType_SetMMI                 EQU     4       ;SetMMI
+                +1   580     ;//////////////////////////////////////Flash³£Á¿¶¨Òå///////////////////////////////////////
+                             ///////////
+  0058          +1   581     CONST_Flash_SysinfoLen                  EQU     88;39;38+12     ; ESAMÏµÍ³ÐÅÏ¢ÎÄ¼þ³¤¶È
+  0004          +1   582     CONST_Flash_0002Len                     EQU     4       ; 0002ÏµÍ³ÐÅÏ¢ÎÄ¼þ³¤¶È  
+  0028          +1   583     CONST_Flash_0012Len                     EQU     40      ; 0012ÏµÍ³ÐÅÏ¢ÎÄ¼þ³¤¶È
+                +1   584     ;CONST_Flash_0015Len                    EQU     33      ; 0015ÏµÍ³ÐÅÏ¢ÎÄ¼þ³¤¶È
+  002B          +1   585     CONST_Flash_0015Len                     EQU     43      ; 0015ÏµÍ³ÐÅÏ¢ÎÄ¼þ³¤¶È
+  003C          +1   586     CONST_Flash_0019Len                     EQU     60;43   ; 0019ÏµÍ³ÐÅÏ¢ÎÄ¼þ³¤¶È
+  002B          +1   587     CONST_Flash_0019GBLen                   EQU     43;43   ; 0019ÏµÍ³ÐÅÏ¢ÎÄ¼þ³¤¶È
+  0001          +1   588     CONST_Flash_CardTypeLEN                 EQU     1       ; ÉÏ´Î²å¿¨ÊÇ½Ó´¥£¬»¹ÊÇ·Ç½Ó´¥
+                +1   589     ;CONST_Flash_SYSPARAMLEN                EQU     1       ; ÏµÍ³²ÎÊ
+  0008          +1   590     CONST_Flash_BeaconIDUnixTimeLen         EQU     8       ; ÌìÏßID¼°unixtime
+  0001          +1   591     CONST_FALSH_PREFlagLen                  EQU     1       ; Ô¤´¦Àí±ê¼Ç=88,±íÊ¾ÉÏ»ØÔ¤´¦Àí³É¹¦
+                +1   592     
+                +1   593     ;************************************************************************************
+                +1   594     ;ÌØ±ð±¸×¢: ÓÉÓÚÔÚÔ¤¶Á0015/0012/0019Ê±ÔÝ´æÔÚÍâ´æµÄ³¤¶È³¬¹128¸ö×Ö½Ú£¬ËùÒÔ£¬Íâ´æ±äÁ¿µÄÆðÆôÎ»ÖÃ
+                             £¬ÒªÔÚConst_Flash_FileLen
+                +1   595     ;³¤¶ÈÖ®ºó£¬Const_Flash_FileLen = 8F£¬Èç¹ûÒÔºóConst_Flash_FileLen³¤¶È¸ÄÁË£¬ÄÇÍâ´æµÄÆôÊ¼Î»ÖÃÒ
+                             ²Òª¸Ä
+                +1   596     ;Íâ´æµÄÆôÊ¼Î»ÖÃ¶¨ÒåÔÚOBUmain.incÖÐXDATA_VARSTARTµÄÖµ
+                +1   597     ;************************************************************************************
+  00EC          +1   598     Const_Flash_FileLen                     EQU     CONST_Flash_SysinfoLen + CONST_Flash_0015Le
+                             n + CONST_Flash_0019Len + CONST_Flash_0012Len + CONST_Flash_0002Len + CONST_Flash_CardTypeLEN 
+                +1   599     
+  0072          +1   600     CONST_FLASH_Block01                     EQU     72H
+                +1   601     
+  0072          +1   602     CONST_FLASH_STARTHIGH                   EQU     CONST_FLASH_Block01;2EH                    
+                                                  ; FLASH´æ´¢ÇøÆðÆôµØÖ·
+  0000          +1   603     CONST_FLASH_STARTLOW                    EQU     00H                                        
+                                  ; FLASH´æ´¢ÇøÆðÆôµØÖ·
+                +1   604     
+  0072          +1   605     CONST_FLASH_SYSINFOH                    EQU     CONST_FLASH_Block01;2EH                    
+                                                  ; ESAMÏµÍ³ÐÅÏ¢ÎÄ¼þ,LEN = 38 BYTE
+  0000          +1   606     CONST_FLASH_SYSINFOL                    EQU     00H
+                +1   607     
+  0072          +1   608     CONST_FLASH_0002H                       EQU     CONST_FLASH_Block01;2EH                    
+                                                  ; ÓÃ»§¿¨0002,LEN = 4 BYTE
+  0058          +1   609     CONST_FLASH_0002L                       EQU     CONST_FLASH_SYSINFOL + CONST_Flash_SysinfoL
+                             en
+A51 MACRO ASSEMBLER  CC1101                                                               10/09/2016 12:08:02 PAGE    11
+
+                +1   610     
+  0072          +1   611     CONST_FLASH_0012H                       EQU     CONST_FLASH_Block01;2EH                    
+                                                  ; ÓÃ»§¿¨0012,LEN = 24 BYTE
+  005C          +1   612     CONST_FLASH_0012L                       EQU     CONST_FLASH_0002L + CONST_Flash_0002Len
+                +1   613     
+  0072          +1   614     CONST_FLASH_0015H                       EQU     CONST_FLASH_Block01;2EH                    
+                                                  ; ÓÃ»§¿¨0015,LEN = 33 BYTE
+  0084          +1   615     CONST_FLASH_0015L                       EQU     CONST_FLASH_0012L + CONST_Flash_0012Len
+                +1   616     
+  0072          +1   617     CONST_FLASH_0019H                       EQU     CONST_FLASH_Block01;2EH                    
+                                                  ; ÓÃ»§¿¨0019,LEN = 43 BYTE      
+  00AF          +1   618     CONST_FLASH_0019L                       EQU     CONST_FLASH_0015L + CONST_Flash_0015Len
+                +1   619             
+                +1   620     ;CONST_FLASH_01BlockH                   EQU     6EH;2EH                                    
+                                  ; MF¿¨µÚ1¿éÊ¾Ý
+                +1   621     ;CONST_FLASH_01BlockL                   EQU     CONST_FLASH_0019L + CONST_Flash_0019Len
+                +1   622             
+                +1   623     ;CONST_FLASH_04BlockH                   EQU     6EH;2EH
+                +1   624     ;CONST_FLASH_04BlockL                   EQU     CONST_FLASH_01BlockL + 16                  
+                                  ;MF¿¨µÚ4¿éÊ¾Ý
+                +1   625             
+                +1   626     ;CONST_FLASH_10BlockH                   EQU     6EH;2EH
+                +1   627     ;CONST_FLASH_10BlockL                   EQU     CONST_FLASH_04BlockL + 16                  
+                                  ;MF¿¨µÚ16¿éÊ¾Ý
+                +1   628             
+  0072          +1   629     CONST_FLASH_LASTCARDH                   EQU     CONST_FLASH_Block01;2EH                    
+                                                  ;ÉÏÒ»´Î²å¿¨ÀàÐÍ
+  00EB          +1   630     CONST_FLASH_LASTCARDL                   EQU     CONST_FLASH_0019L + CONST_Flash_0019Len    
+                                  ;CONST_FLASH_10BlockL + 16
+                +1   631             
+                +1   632     ;CONST_FLASH_SYSPARAMH                  EQU     6EH;2EH                         ;ÏµÍ³²ÎÊ
+                +1   633     ;CONST_FLASH_SYSPARAML                  EQU     CONST_FLASH_LASTCARDL + 1
+                +1   634             
+  0072          +1   635     CONST_Flash_BeaconIDUnixTimeH           EQU     CONST_FLASH_Block01;2EH
+  00EC          +1   636     CONST_Flash_BeaconIDUnixTimeL           EQU     CONST_FLASH_LASTCARDL + 1       ; 8 byte Ìì
+                             ÏßIDºÍunixtimeÊ±¼ä
+                +1   637             
+  0072          +1   638     CONST_FALSH_PREFlagH                    EQU     CONST_FLASH_Block01;2EH
+  00F4          +1   639     CONST_FALSH_PREFlagL                    EQU     CONST_Flash_BeaconIDUnixTimeL + CONST_Flash
+                             _BeaconIDUnixTimeLen;1 Byte
+                +1   640             
+  0072          +1   641     CONST_FALSH_PREFlag02H                  EQU     CONST_FLASH_Block01;2EH
+  00F5          +1   642     CONST_FALSH_PREFlag02L                  EQU     CONST_FALSH_PREFlagL + 1        ;1      ;3 
+                             Byte
+                +1   643              
+  0072          +1   644     CONST_FALSH_PREFlag03H                  EQU     CONST_FLASH_Block01;2EH
+  00F6          +1   645     CONST_FALSH_PREFlag03L                  EQU     CONST_FALSH_PREFlag02L + 1      ;1      ;3 
+                             Byte
+                +1   646             
+  0072          +1   647     CONST_FALSH_PowerH                      EQU     CONST_FLASH_Block01;2EH
+  00F7          +1   648     CONST_FALSH_PowerL                      EQU     CONST_FALSH_PREFlag03L + 1      ;1      ;3 
+                             Byte
+                +1   649             
+                +1   650     ;CONST_FLASH_SysRstH                    EQU     06CH
+                +1   651     ;CONST_FLASH_SysRstL                    EQU     000H
+                +1   652             
+  006C          +1   653     CONST_FLASH_Sys0020H                    EQU     6ch;064H
+  0000          +1   654     CONST_FLASH_Sys0020L                    EQU     000H
+                +1   655             
+  006A          +1   656     CONST_FLASH_Sys0020numH                 EQU     6ah;062H
+  0000          +1   657     CONST_FLASH_Sys0020numL                 EQU     000H
+                +1   658             
+                +1   659     ;CONST_FLASH_SysHVH                     EQU     6CH;68h;062H
+                +1   660     ;CONST_FLASH_SysHVL                     EQU     000H
+                +1   661             
+  00FF          +1   662     const_black_h                           EQU     0ffH
+A51 MACRO ASSEMBLER  CC1101                                                               10/09/2016 12:08:02 PAGE    12
+
+  00FF          +1   663     const_black_l                           EQU     0ffH
+                +1   664             
+  0000          +1   665     const_white_h                           EQU     000H;40h                                ; 0
+                             0h
+  0031          +1   666     const_white_l                           EQU     031H;80h                                ; 0
+                             0h
+                +1   667     ;//////////////////////////////////////////////////////////////////////////////////////////
+                             ///////////
+                +1   668     ;(¾§Õñ*2)/(32*12*²¨ÌØÂÊ)                
+                +1   669     ;CONST_SOF                              EQU     22118400                        ; 24576000
+  0000          +1   670     CONST_SOF                               EQU     24576000                        ; µ±Ç°Ö÷Æµ¾
+                             §ÌåÆµÂÊ
+                +1   671     ;//////////////////////////////////////// PPS ³£Á¿ ¶¨Òå ///////////////////////////////////
+                             ////////////
+  0010          +1   672     CONST_PPS_9600                          EQU     10H                             
+  0013          +1   673     CONST_PPS_38400                         EQU     13H
+  0018          +1   674     CONST_PPS_115200                        EQU     18H
+  0096          +1   675     CONST_PPS_230000                        EQU     96H
+                +1   676     ;//////////////////////////////////////// ´®¿Ú ³£Á¿ ¶¨Òå //////////////////////////////////
+                             /////////////
+                +1   677             
+  0000          +1   678     CONST_BAUD_9600                         EQU     00                              ; ²¨ÌØÂÊ±àÂ
+                             ë
+  0001          +1   679     CONST_BAUD_38400                        EQU     01
+  0002          +1   680     CONST_BAUD_115200                       EQU     02
+  0003          +1   681     CONST_BAUD_115200PC                     EQU     03
+  0004          +1   682     CONST_BAUD_230000                       EQU     04
+  0005          +1   683     CONST_BAUD_38400PC                      EQU     5
+  0006          +1   684     CONST_BAUD_9600PC                       EQU     06                              ; ²¨ÌØÂÊ±àÂ
+                             ë
+                +1   685             
+                +1   686     ;ÔÚ24.576MÏÂ´®¿ÚµÚÒ»¸ö×Ö½ÚÉè¶¨ÎªÒª¼ìË÷100MS = CONST_SOF/(10*(FF*FF) = 38 = 26H
+  0010          +1   687     CONST_SOFTFIRSTSCANTIME                 EQU     16;8;32;16;8;10H        ; 10h   ;10h    ;10
+                             H;0dH;10H    ;  26H
+  00FF          +1   688     CONST_SOFTFIRSTSCANTIMEXX               EQU     0FFH    ; ESAM¿¨·Ç³£¹æÖ¸Áî£¬¼Ó´óËÑË÷Ê±¼äÏÞÖ
+                             Æ[Èç80 E4Ö¸Áî]
+  0070          +1   689     CONST_SOFTSECOND                        EQU     070H    ; 10H   ;  Èí½ÓÊÕµÚ¶þ¸ö×Ö½Ú½ÓÊÕÊ±¼ä
+                             ÏÞ³¤ CONST_SOFTSECOND*255¸öÖÜÆÚ
+  0015          +1   690     CONST_HANDSECOND                        EQU     15H     ; 01AH[ÔÚ9600²¨ÌØÏÂ£¬Òª·Å¿íµ½1AH];Ó
+                             ²½ÓÊÕµÚ¶þ¸ö×Ö½Ú½ÓÊÕÊ±¼äÏÞ³¤ CONST_HANDSECOND*255¸öÖÜÆÚ
+                +1   691                                                     
+  0014          +1   692     CONST_SOFTBYTESP                        EQU     20;50;4 ;Èí´®¿Ú·¢ËÍ³ÌÐò×Ö½Ú¼ä¾à¿ØÖÆÓë_FUN_L
+                             IB_DELAYSIMPLAYº¯ÊÅäºÏÊ¹ÓÃ
+                +1   693     ;//////////////////////////////////////// Èí´®¿Ú ³£Á¿ ¶¨Òå ////////////////////////////////
+                             ///////////////
+                +1   694     ;CONST_BAUD_FULL9600                    EQU     637     ;2560
+                +1   695     ;CONST_BAUD_HALF9600                    EQU     317     ;2560
+                +1   696     ;CONST_BAUD_FULL9600                    EQU     576     ;2304
+                +1   697     ;CONST_BAUD_HALF9600                    EQU     285     ;1152
+                +1   698     ;CONST_BAUD_FULL9600                    EQU     76      ;2304
+                +1   699     ;CONST_BAUD_HALF9600                    EQU     85      ;1152
+                +1   700     ;CONST_BAUD_FULL38400                   EQU     157     ;640
+                +1   701     ;CONST_BAUD_HALF38400                   EQU     77      ;213
+                +1   702     ;CONST_BAUD_FULL38400                   EQU     141     ;576
+                +1   703     ;CONST_BAUD_HALF38400                   EQU     69      ;288
+                +1   704     ;CONST_BAUD_FULL115200                  EQU     50      ;213 Ã¿Î»²îÒ»µ½2¸öÂö³å£¬Èç¹û²»ÐÐ£¬¾
+                             ÍÖ±½Ó»»ÁËÑÓÊ±º¯Ê
+                +1   705     ;CONST_BAUD_HALF115200                  EQU     21      ;213 Ã¿Î»²îÒ»µ½2¸öÂö³å£¬Èç¹û²»ÐÐ£¬¾
+                             ÍÖ±½Ó»»ÁËÑÓÊ±º¯Ê
+                +1   706     ;CONST_BAUD_FULL115200                  EQU     45      ;192 Ã¿Î»²îÒ»µ½2¸öÂö³å£¬Èç¹û²»ÐÐ£¬¾
+                             ÍÖ±½Ó»»ÁËÑÓÊ±º¯Ê
+                +1   707     ;CONST_BAUD_HALF115200                  EQU     21      ;96  Ã¿Î»²îÒ»µ½2¸öÂö³å£¬Èç¹û²»ÐÐ£¬¾
+                             ÍÖ±½Ó»»ÁËÑÓÊ±º¯Ê
+                +1   708             
+  00B3          +1   709     CONST_BAUD_FULL9600                     EQU     179     ;[(24576000/9600)*(3.58/6)-12]/4-20
+                             0=[2560*(3.59/6)-12]/4-250=(1527-12)/4-200=378.75=379-200=179
+A51 MACRO ASSEMBLER  CC1101                                                               10/09/2016 12:08:02 PAGE    13
+
+  0058          +1   710     CONST_BAUD_HALF9600                     EQU     88      ;[(24576000/9600/2)*(3.58/6)-12]/4-
+                             100=[2560*(3.59/6)-12]/4=(763-12)/4-100=187.75=188-100=88
+                +1   711     
+  005D          +1   712     CONST_BAUD_FULL38400                    EQU     93      ;[(24576000/38400)*(3.58/6)-12]/4= 
+                             [640 * (3.59/6)-12]/4 = (382-12)/4=92.5=93
+  002D          +1   713     CONST_BAUD_HALF38400                    EQU     45      ;[(24576000/38400/2)*(3.58/6)-12]/4
+                             = [320 * (3.59/6)-12]/4 = (191-12)/4=44.75=45
+                +1   714     
+  001D          +1   715     CONST_BAUD_FULL115200                   EQU     29      ;[(24576000/115200)*(3.58/6)-12]/4=
+                             [213*(3.58/6)-12]/4=(127-12)/4=28.75=29
+  000D          +1   716     CONST_BAUD_HALF115200                   EQU     13;     ;[(24576000/115200/2)*(3.58/6)-12]/
+                             4=[115.5*(3.58/6)-12]/4=(64-12)/4=13
+                +1   717     
+  000F          +1   718     CONST_BAUD_FULL230000                   EQU     15;13   ;[(24576000/230000/2)*(3.58/6)]/4 =
+                              64/4 = 16
+  0008          +1   719     CONST_BAUD_HALF230000                   EQU     8;5     ;[(24576000/230000/2)*(3.58/6)]/4=[
+                             115.5*(3.58/6)]/4=32/4=8
+                +1   720             
+  00B3          +1   721     CONST_BAUD_CURRENTBITFULL               EQU     CONST_BAUD_FULL9600
+  0058          +1   722     CONST_BAUD_CURRENTBITHALF               EQU     CONST_BAUD_HALF9600
+                +1   723     ;CONST_BAUD_BITHALF12                   EQU     CONST_BAUD_CURRENTBITHALF - 3
+                +1   724     ;CONST_BAUD_BITFULL8                    EQU     CONST_BAUD_CURRENTBITFULL - 2
+                +1   725     ;CONST_BAUD_BITFULL12                   EQU     CONST_BAUD_CURRENTBITFULL - 3
+                +1   726     ;CONST_BAUD_BITFULL20                   EQU     CONST_BAUD_CURRENTBITFULL - 5
+                +1   727     ;CONST_BAUD_BITFULL28                   EQU     CONST_BAUD_CURRENTBITFULL - 7
+                +1   728             
+  000C          +1   729     CONST_BAUD_BITHALF12                    EQU     3 + 9
+  000B          +1   730     CONST_BAUD_BITFULL8                     EQU     2 + 9
+  000C          +1   731     CONST_BAUD_BITFULL12                    EQU     3 + 9
+  000E          +1   732     CONST_BAUD_BITFULL20                    EQU     5 + 9
+  0010          +1   733     CONST_BAUD_BITFULL28                    EQU     7 + 9
+                +1   734             
+                +1   735     ;////////////////////////////////////////  Ó²´®¿Ú ³£Á¿ ¶¨Òå ///////////////////////////////
+                             ////////////////
+                +1   736     ;CONST_BAUD_HAND115200                  EQU     0FFH;(256 - CONST_SOF/(192*115200))     ;
+                +1   737     ;CONST_BAUD_HAND38400                   EQU     0FDH;(256 - (CONST_SOF/(192*38400)))    ;
+                +1   738     ;CONST_BAUD_HAND9600                    EQU     0F4H;(256 - CONST_SOF/(192*9600))       ;
+                +1   739     
+  00FC          +1   740     CONST_BAUD_HAND230000                   EQU     252     ;0FCH   24.576x1000000/(230000x6/3.
+                             58=)/16 = 4 = F8H
+  00F3          +1   741     CONST_BAUD_HAND115200PC                 EQU     243     ;243    ;24.576 / 0F3H  ;24576000 /
+                              32179 = 764 / 16 = 47.7 = 48 = D0H
+  00F8          +1   742     CONST_BAUD_HAND115200                   EQU     248     ;0F8H   ;24.576x1000000/(115200x6/3
+                             .58=193073)/16 = 8 = F8H             
+  00D8          +1   743     CONST_BAUD_HAND38400pc                  EQU     216     ;0E8H   ;24.576x1000000/(38400x6/3.
+                             58=64358)/16 = 24 = E8H
+  00E9          +1   744     CONST_BAUD_HAND38400                    EQU     233     ;0E8H   ;24.576x1000000/(38400x6/3.
+                             58=64358)/16 = 24 = E8H
+  0060          +1   745     CONST_BAUD_HAND9600pc                   EQU     96      ;0A1H   ;24.576x1000000/(9600x6/3.5
+                             8=16089)/16 = 95 = A1H               
+                +1   746     
+  00A3          +1   747     CONST_BAUD_HAND9600                     EQU     163     ;0A1H   ;24.576x1000000/(9600x6/3.5
+                             8=16089)/16 = 95 = A1H               
+                +1   748     
+                +1   749     ;24.576x1000000/(38400x9.6/3.58=102972)/16=15 = f1
+                +1   750     ;24.576x1000000/(9600x9.6/3.58=25743)/16=60 = c4h
+                +1   751     ;24.576x1000000/(230000x6/3.58=385475)/16=4 = fch
+                +1   752     
+                +1   753     ;////////////////////////////////////////  Ö¸Áî¼¯ /////////////////////////////////////////
+                             //////
+                +1   754     ;LL C2H LH 32H
+                +1   755     ;ML 62H MH 12H
+                +1   756     ;HL 32H HH 12H
+                +1   757             
+  0001          +1   758     CONST_ACT_L                             EQU     1
+  0002          +1   759     CONST_ACT_M                             EQU     2
+A51 MACRO ASSEMBLER  CC1101                                                               10/09/2016 12:08:02 PAGE    14
+
+  0003          +1   760     CONST_ACT_H                             EQU     3
+                +1   761             
+  0002          +1   762     CONST_ACT_V                             EQU     CONST_ACT_M
+                +1   763             
+  000A          +1   764     CONST_ACT_L_L                           EQU     0ah;0C2H
+  0006          +1   765     CONST_ACT_L_H                           EQU     06h;032H
+                +1   766             
+  0006          +1   767     CONST_ACT_M_L                           EQU     06h;062H
+  0000          +1   768     CONST_ACT_M_H                           EQU     00h;012H
+                +1   769             
+  0000          +1   770     CONST_ACT_H_L                           EQU     00h;032H
+  0001          +1   771     CONST_ACT_H_H                           EQU     01h;012H
+                +1   772     
+                     773     
+                     774             
+----                 775             RSEG    ?pr?CC1101?Mater
+                     776             USING   0
+                     777             
+                     778     ;--------------------------------------------------------------------------     
+                     779     ;ÃèÊö:  ¼ì²écc1101ÊÇ·ñÕ³£
+                     780     ;
+                     781     ;--------------------------------------------------------------------------
+0000                 782     _FUN_CC1101_CZ:
+                     783      
+                     784             
+0000 22              785             RET     
+                     786     ;--------------------------------------------------------------------------
+                     787     ;ÃèÊö:  ÈíSPIÐ´¶ÁÊ¾Ýº¯Ê
+                     788     ;Íâ²¿²ÎÊ
+                     789     ;       Pin_ss                  ---     ???
+                     790     ;       A                       ---     µØÖ·
+                     791     ;       R7                      ---     Ê¾Ý
+                     792     ;ÄÚ²¿²ÎÊ:
+                     793     ;       xxx
+                     794     ;·µ»ØÖµ
+                     795     ;       B
+                     796     ;--------------------------------------------------------------------------     
+0001                 797     _FUN_CC1101_spioSoft:
+                     798              
+0001 22              799             RET
+                     800     ;----------------------------------------------------------
+                     801     ;ÃèÊö£º
+                     802     ;       SPI ·¢ËÍµ¥¸ö×Ö½ÚÊ¾Ý
+                     803     ;²ÎÊ    
+                     804     ;       A
+                     805     ;·µ»ØÖµ  
+                     806     ;       B
+                     807     ;----------------------------------------------------------
+0002                 808     _FUN_CC1101_spioSingleSoft:
+                     809             
+                     810              
+0002 22              811             RET     
+                     812     ;----------------------------------------------------------
+                     813     ;ÃèÊö£º
+                     814     ;       CC1101 ³õÊ¼»¯   
+                     815     ;²ÎÊ    
+                     816     ;       
+                     817     ;Á÷³Ì   
+                     818     ;       
+                     819     ;----------------------------------------------------------
+0003                 820     _FUN_CC1101_INIT:
+                     821             
+                     822              
+0003 22              823             RET
+                     824     ;----------------------------------------------------------
+                     825     ;ÃèÊö£º
+A51 MACRO ASSEMBLER  CC1101                                                               10/09/2016 12:08:02 PAGE    15
+
+                     826     ;       CC1101¸´Î»
+                     827     ;²ÎÊ    
+                     828     ;       
+                     829     ;Á÷³Ì   
+                     830     ;       
+                     831     ;----------------------------------------------------------
+0004                 832     _FUN_CC1101_RESET:
+                     833             
+0004 22              834             RET
+                     835     ;----------------------------------------------------------
+                     836     ;ÃèÊö£º
+                     837     ;       ³õÊ¼»¯ 1101 »½ÐÑÊ±¼ä init_wor
+                     838     ;²ÎÊ    
+                     839     ;       
+                     840     ;Á÷³Ì   
+                     841     ;       
+                     842     ;----------------------------------------------------------
+0005                 843     _FUN_CC1101_SetWakeUpTime:
+                     844      
+0005 22              845             RET
+                     846     ;----------------------------------------------------------
+                     847     ;ÃèÊö£º
+                     848     ;       ´ò¿ª½ÓÊÕ ReceiveOn
+                     849     ;²ÎÊ    
+                     850     ;       
+                     851     ;Á÷³Ì   
+                     852     ;       
+                     853     ;----------------------------------------------------------
+0006                 854     _FUN_CC1101_RVOn:
+                     855             
+0006 22              856             RET
+                     857     ;----------------------------------------------------------
+                     858     ;ÃèÊö£º
+                     859     ;       ¹Ø±Õ½ÓÊÕ ReceiveOff
+                     860     ;²ÎÊ    
+                     861     ;       
+                     862     ;Á÷³Ì   
+                     863     ;       
+                     864     ;----------------------------------------------------------
+0007                 865     _FUN_CC1101_RVOff:
+                     866             
+0007 22              867             RET
+                     868     ;----------------------------------------------------------
+                     869     ;ÃèÊö£º 
+                     870     ;       »Ø¶Á  init_wor_state 
+                     871     ;²ÎÊ    
+                     872     ;       
+                     873     ;Á÷³Ì   
+                     874     ;       
+                     875     ;----------------------------------------------------------
+                     876     ;  if(spi_Read_Reg(TI_CCxxx0_IOCFG2) != 0x06)
+                     877     ;  {
+                     878     ;    while(1);
+                     879     ;  }
+                     880     ;  if(spi_Read_Reg(TI_CCxxx0_IOCFG0) != 0x25)
+                     881     ;  {
+                     882     ;    while(1);
+                     883     ;  }
+                     884     ;  if(spi_Read_Reg(TI_CCxxx0_WORCTRL) != 0x71)
+                     885     ;  {
+                     886     ;    while(1);
+                     887     ;  }
+                     888     ;  if(spi_Read_Reg(TI_CCxxx0_WOREVT1) != 0x04)
+                     889     ;  {
+                     890     ;    while(1);
+                     891     ;  }
+A51 MACRO ASSEMBLER  CC1101                                                               10/09/2016 12:08:02 PAGE    16
+
+                     892     ;  if(spi_Read_Reg(TI_CCxxx0_WOREVT0) != 0x00)
+                     893     ;  {
+                     894     ;       while(1);
+                     895     ;  }
+                     896     
+                     897     ;  if(spi_Read_Reg(TI_CCxxx0_MCSM2) != 0x00)
+                     898     ;  {
+                     899     ;       while(1);
+                     900     ;  }
+0008                 901     _FUN_CC1101_Err:
+0008 020000   F      902             JMP     ap_start
+000B                 903     _FUN_CC1101_RVWR:
+                     904             
+000B 22              905             RET
+                     906     ;//////////////////////////////////////////////////////////////////////////////////////////
+                             //////
+000C                 907     _FUN_CC1101_Err02:
+                     908      
+000C 22              909             ret
+000D                 910     _FUN_CC1101_RVWR02:     
+                     911      
+000D 22              912             RET
+                     913     ;//////////////////////////////////////////////////////////////////////////////////////////
+                             //////
+                     914     
+                     915     ;----------------------------------------------------------
+                     916     ;ÃèÊö£º
+                     917     ;       ÉèÖÃµ±Ç°Îª¿ÕÏÐ×´Ì¬  spi_strobe(TI_CCxxx0_SIDLE);  
+                     918     ;²ÎÊ    
+                     919     ;       
+                     920     ;Á÷³Ì   
+                     921     ;       
+                     922     ;----------------------------------------------------------
+000E                 923     _FUN_CC1101_Idle:
+                     924      
+000E 22              925             RET
+                     926     ;----------------------------------------------------------
+                     927     ;ÃèÊö£º
+                     928     ;       ÉèÖÃµ±Ç°Îª»½ÐÑ×´Ì¬ spi_strobe(TI_CCxxx0_SWOR);       /
+                     929     ;²ÎÊ    
+                     930     ;       
+                     931     ;Á÷³Ì   
+                     932     ;       
+                     933     ;----------------------------------------------------------
+000F                 934     _FUN_CC1101_WakeUP:
+                     935      
+000F 22              936             RET
+                     937             
+                     938             
+                     939     ;--------------------------------------------------------------------------
+                     940     ;ÃèÊö:  Èí SPI ¶Á CC1101
+                     941     ;Íâ²¿²ÎÊ
+                     942     ;ÄÚ²¿²ÎÊ:
+                     943     ;       xxx
+                     944     ;Á÷³Ì
+                     945     ;       ¶Á×ÜÊ
+                     946     ;       Ñ­»·¶Á³öÊ¾Ý
+                     947     ;·µ»ØÖµ
+                     948     ;       B
+                     949     ;--------------------------------------------------------------------------
+0010                 950     _FUN_CC1101_RX:
+                     951              
+                     952              
+                     953             
+0010                 954     CC1101_RX_Over: 
+                     955      
+A51 MACRO ASSEMBLER  CC1101                                                               10/09/2016 12:08:02 PAGE    17
+
+0010 020000   F      956             JMP     ap_start
+                     957      
+0013                 958     CC1101_RX_Reset:
+                     959     
+0013 22              960             RET     
+                     961     ;--------------------------------------------------------------------------
+                     962     ;CC1101_RX_Err:
+                     963      
+                     964     ;       JMP     ap_start        
+                     965     ;--------------------------------------------------------------------------
+                     966     ;ÃèÊö:  ÈíSPI¶ÁCC1101ÏìÓ¦Ê¾Ý
+                     967     ;Íâ²¿²ÎÊ
+                     968     ;       Pin_SS                  ---     ???
+                     969     ;       A                       ---     µØÖ·
+                     970     ;       R7                      ---     Ê¾Ý
+                     971     ;       R6                      ---     Íâ´æ
+                     972     ;       R4                      ---     ×ÜÊ
+                     973     ;ÄÚ²¿²ÎÊ:
+                     974     ;       xxx
+                     975     ;·µ»ØÖµ
+                     976     ;       B
+                     977     ;--------------------------------------------------------------------------
+0014                 978     _FUN_CC1101_spioSoftRXCC1101RXCC1101:
+                     979                     
+0014 22              980             RET
+                     981             END     
+A51 MACRO ASSEMBLER  CC1101                                                               10/09/2016 12:08:02 PAGE    18
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E                               T Y P E  V A L U E   ATTRIBUTES
+
+?CO?CC1101?FLASHSTR. . . . . . . . .  C SEG    0001H       REL=UNIT
+?PR?CC1101?MATER . . . . . . . . . .  C SEG    0015H       REL=UNIT
+AP_START . . . . . . . . . . . . . .  C ADDR   -----       EXT
+BIT_5823RX_FLAG. . . . . . . . . . .  B ADDR   -----       EXT
+BIT_BUFADDR. . . . . . . . . . . . .  B ADDR   -----       EXT
+BRT. . . . . . . . . . . . . . . . .  N NUMB   009CH   A   
+BUSY . . . . . . . . . . . . . . . .  B ADDR   0020H.0 A   
+CC1101 . . . . . . . . . . . . . . .  N NUMB   -----       
+CC1101_RX_OVER . . . . . . . . . . .  C ADDR   0010H   R   SEG=?PR?CC1101?MATER
+CC1101_RX_RESET. . . . . . . . . . .  C ADDR   0013H   R   SEG=?PR?CC1101?MATER
+CCAP0H . . . . . . . . . . . . . . .  N NUMB   00FAH   A   
+CCAP0L . . . . . . . . . . . . . . .  N NUMB   00EAH   A   
+CCAP1H . . . . . . . . . . . . . . .  N NUMB   00FBH   A   
+CCAP1L . . . . . . . . . . . . . . .  N NUMB   00EBH   A   
+CCAP2H . . . . . . . . . . . . . . .  N NUMB   00FCH   A   
+CCAP2L . . . . . . . . . . . . . . .  N NUMB   00ECH   A   
+CCAP3H . . . . . . . . . . . . . . .  N NUMB   00FDH   A   
+CCAP3L . . . . . . . . . . . . . . .  N NUMB   00EDH   A   
+CCAP4H . . . . . . . . . . . . . . .  N NUMB   00FEH   A   
+CCAP4L . . . . . . . . . . . . . . .  N NUMB   00EEH   A   
+CCAP5H . . . . . . . . . . . . . . .  N NUMB   00FFH   A   
+CCAP5L . . . . . . . . . . . . . . .  N NUMB   00EFH   A   
+CCAPM0 . . . . . . . . . . . . . . .  N NUMB   00DAH   A   
+CCAPM1 . . . . . . . . . . . . . . .  N NUMB   00DBH   A   
+CCAPM2 . . . . . . . . . . . . . . .  N NUMB   00DCH   A   
+CCAPM3 . . . . . . . . . . . . . . .  N NUMB   00DDH   A   
+CCAPM4 . . . . . . . . . . . . . . .  N NUMB   00DEH   A   
+CCAPM5 . . . . . . . . . . . . . . .  N NUMB   00DFH   A   
+CCF0 . . . . . . . . . . . . . . . .  B ADDR   00D8H.0 A   
+CCF1 . . . . . . . . . . . . . . . .  B ADDR   00D8H.1 A   
+CCF2 . . . . . . . . . . . . . . . .  B ADDR   00D8H.2 A   
+CCF3 . . . . . . . . . . . . . . . .  B ADDR   00D8H.3 A   
+CCF4 . . . . . . . . . . . . . . . .  B ADDR   00D8H.4 A   
+CCF5 . . . . . . . . . . . . . . . .  B ADDR   00D8H.5 A   
+CCON . . . . . . . . . . . . . . . .  N NUMB   00D8H   A   
+CF . . . . . . . . . . . . . . . . .  B ADDR   00D8H.7 A   
+CH . . . . . . . . . . . . . . . . .  N NUMB   00F9H   A   
+CL . . . . . . . . . . . . . . . . .  N NUMB   00E9H   A   
+CMOD . . . . . . . . . . . . . . . .  N NUMB   00D9H   A   
+CONST_ACTIONTYPE_GETRAND . . . . . .  N NUMB   0002H   A   
+CONST_ACTIONTYPE_GETSECURE . . . . .  N NUMB   0000H   A   
+CONST_ACTIONTYPE_SETMMI. . . . . . .  N NUMB   0004H   A   
+CONST_ACTIONTYPE_SETSECURE . . . . .  N NUMB   0001H   A   
+CONST_ACTIONTYPE_TRANSFERCHANNEL . .  N NUMB   0003H   A   
+CONST_ACT_H. . . . . . . . . . . . .  N NUMB   0003H   A   
+CONST_ACT_H_H. . . . . . . . . . . .  N NUMB   0001H   A   
+CONST_ACT_H_L. . . . . . . . . . . .  N NUMB   0000H   A   
+CONST_ACT_L. . . . . . . . . . . . .  N NUMB   0001H   A   
+CONST_ACT_L_H. . . . . . . . . . . .  N NUMB   0006H   A   
+CONST_ACT_L_L. . . . . . . . . . . .  N NUMB   000AH   A   
+CONST_ACT_M. . . . . . . . . . . . .  N NUMB   0002H   A   
+CONST_ACT_M_H. . . . . . . . . . . .  N NUMB   0000H   A   
+CONST_ACT_M_L. . . . . . . . . . . .  N NUMB   0006H   A   
+CONST_ACT_V. . . . . . . . . . . . .  N NUMB   0002H   A   
+CONST_BAUD_115200. . . . . . . . . .  N NUMB   0002H   A   
+CONST_BAUD_115200PC. . . . . . . . .  N NUMB   0003H   A   
+CONST_BAUD_230000. . . . . . . . . .  N NUMB   0004H   A   
+CONST_BAUD_38400 . . . . . . . . . .  N NUMB   0001H   A   
+CONST_BAUD_38400PC . . . . . . . . .  N NUMB   0005H   A   
+CONST_BAUD_9600. . . . . . . . . . .  N NUMB   0000H   A   
+A51 MACRO ASSEMBLER  CC1101                                                               10/09/2016 12:08:02 PAGE    19
+
+CONST_BAUD_9600PC. . . . . . . . . .  N NUMB   0006H   A   
+CONST_BAUD_BITFULL12 . . . . . . . .  N NUMB   000CH   A   
+CONST_BAUD_BITFULL20 . . . . . . . .  N NUMB   000EH   A   
+CONST_BAUD_BITFULL28 . . . . . . . .  N NUMB   0010H   A   
+CONST_BAUD_BITFULL8. . . . . . . . .  N NUMB   000BH   A   
+CONST_BAUD_BITHALF12 . . . . . . . .  N NUMB   000CH   A   
+CONST_BAUD_CURRENTBITFULL. . . . . .  N NUMB   00B3H   A   
+CONST_BAUD_CURRENTBITHALF. . . . . .  N NUMB   0058H   A   
+CONST_BAUD_FULL115200. . . . . . . .  N NUMB   001DH   A   
+CONST_BAUD_FULL230000. . . . . . . .  N NUMB   000FH   A   
+CONST_BAUD_FULL38400 . . . . . . . .  N NUMB   005DH   A   
+CONST_BAUD_FULL9600. . . . . . . . .  N NUMB   00B3H   A   
+CONST_BAUD_HALF115200. . . . . . . .  N NUMB   000DH   A   
+CONST_BAUD_HALF230000. . . . . . . .  N NUMB   0008H   A   
+CONST_BAUD_HALF38400 . . . . . . . .  N NUMB   002DH   A   
+CONST_BAUD_HALF9600. . . . . . . . .  N NUMB   0058H   A   
+CONST_BAUD_HAND115200. . . . . . . .  N NUMB   00F8H   A   
+CONST_BAUD_HAND115200PC. . . . . . .  N NUMB   00F3H   A   
+CONST_BAUD_HAND230000. . . . . . . .  N NUMB   00FCH   A   
+CONST_BAUD_HAND38400 . . . . . . . .  N NUMB   00E9H   A   
+CONST_BAUD_HAND38400PC . . . . . . .  N NUMB   00D8H   A   
+CONST_BAUD_HAND9600. . . . . . . . .  N NUMB   00A3H   A   
+CONST_BAUD_HAND9600PC. . . . . . . .  N NUMB   0060H   A   
+CONST_BLACK_H. . . . . . . . . . . .  N NUMB   00FFH   A   
+CONST_BLACK_L. . . . . . . . . . . .  N NUMB   00FFH   A   
+CONST_BSTLIMIT . . . . . . . . . . .  N NUMB   0008H   A   
+CONST_BSTLIMIT02 . . . . . . . . . .  N NUMB   0064H   A   
+CONST_CARD_CONSUME . . . . . . . . .  N NUMB   0016H   A   
+CONST_CARD_PASS. . . . . . . . . . .  N NUMB   0017H   A   
+CONST_CELLFILE_H . . . . . . . . . .  N NUMB   0000H   A   
+CONST_CELLFILE_L . . . . . . . . . .  N NUMB   0009H   A   
+CONST_DATA_VALUE1. . . . . . . . . .  N NUMB   000FH   A   
+CONST_DATA_VALUE2. . . . . . . . . .  N NUMB   00DEH   A   
+CONST_DSRC_ACTION. . . . . . . . . .  N NUMB   0007H   A   
+CONST_DSRC_ACTIONTYPE. . . . . . . .  N NUMB   0009H   A   
+CONST_DSRC_CHANNELIDICC. . . . . . .  N NUMB   0001H   A   
+CONST_DSRC_CHANNELIDSAM. . . . . . .  N NUMB   0002H   A   
+CONST_DSRC_CONTAIN . . . . . . . . .  N NUMB   000AH   A   
+CONST_DSRC_DID . . . . . . . . . . .  N NUMB   0008H   A   
+CONST_DSRC_FILDIDAPPKEY. . . . . . .  N NUMB   0000H   A   
+CONST_DSRC_FILDIDCONSUME . . . . . .  N NUMB   0002H   A   
+CONST_DSRC_FILDIDHOLD. . . . . . . .  N NUMB   0003H   A   
+CONST_DSRC_FILDIDVEHICLE . . . . . .  N NUMB   0001H   A   
+CONST_DSRC_FILL. . . . . . . . . . .  N NUMB   000BH   A   
+CONST_DSRC_HEAD. . . . . . . . . . .  N NUMB   0006H   A   
+CONST_DSRC_LLCCTRL . . . . . . . . .  N NUMB   0005H   A   
+CONST_DSRC_MACCTRL . . . . . . . . .  N NUMB   0004H   A   
+CONST_ESAMCELLFILE_H . . . . . . . .  N NUMB   00EFH   A   
+CONST_ESAMCELLFILE_L . . . . . . . .  N NUMB   0007H   A   
+CONST_ETC_INPUT. . . . . . . . . . .  N NUMB   0003H   A   
+CONST_FALSH_POWERH . . . . . . . . .  N NUMB   0072H   A   
+CONST_FALSH_POWERL . . . . . . . . .  N NUMB   00F7H   A   
+CONST_FALSH_PREFLAG02H . . . . . . .  N NUMB   0072H   A   
+CONST_FALSH_PREFLAG02L . . . . . . .  N NUMB   00F5H   A   
+CONST_FALSH_PREFLAG03H . . . . . . .  N NUMB   0072H   A   
+CONST_FALSH_PREFLAG03L . . . . . . .  N NUMB   00F6H   A   
+CONST_FALSH_PREFLAGH . . . . . . . .  N NUMB   0072H   A   
+CONST_FALSH_PREFLAGL . . . . . . . .  N NUMB   00F4H   A   
+CONST_FALSH_PREFLAGLEN . . . . . . .  N NUMB   0001H   A   
+CONST_FLAG_INPUT . . . . . . . . . .  N NUMB   0000H   A   
+CONST_FLAG_OUTPUT. . . . . . . . . .  N NUMB   0001H   A   
+CONST_FLASH_0002H. . . . . . . . . .  N NUMB   0072H   A   
+CONST_FLASH_0002L. . . . . . . . . .  N NUMB   0058H   A   
+CONST_FLASH_0002LEN. . . . . . . . .  N NUMB   0004H   A   
+CONST_FLASH_0012H. . . . . . . . . .  N NUMB   0072H   A   
+CONST_FLASH_0012L. . . . . . . . . .  N NUMB   005CH   A   
+A51 MACRO ASSEMBLER  CC1101                                                               10/09/2016 12:08:02 PAGE    20
+
+CONST_FLASH_0012LEN. . . . . . . . .  N NUMB   0028H   A   
+CONST_FLASH_0015H. . . . . . . . . .  N NUMB   0072H   A   
+CONST_FLASH_0015L. . . . . . . . . .  N NUMB   0084H   A   
+CONST_FLASH_0015LEN. . . . . . . . .  N NUMB   002BH   A   
+CONST_FLASH_0019GBLEN. . . . . . . .  N NUMB   002BH   A   
+CONST_FLASH_0019H. . . . . . . . . .  N NUMB   0072H   A   
+CONST_FLASH_0019L. . . . . . . . . .  N NUMB   00AFH   A   
+CONST_FLASH_0019LEN. . . . . . . . .  N NUMB   003CH   A   
+CONST_FLASH_BEACONIDUNIXTIMEH. . . .  N NUMB   0072H   A   
+CONST_FLASH_BEACONIDUNIXTIMEL. . . .  N NUMB   00ECH   A   
+CONST_FLASH_BEACONIDUNIXTIMELEN. . .  N NUMB   0008H   A   
+CONST_FLASH_BLOCK01. . . . . . . . .  N NUMB   0072H   A   
+CONST_FLASH_CARDTYPELEN. . . . . . .  N NUMB   0001H   A   
+CONST_FLASH_FILELEN. . . . . . . . .  N NUMB   00ECH   A   
+CONST_FLASH_LASTCARDH. . . . . . . .  N NUMB   0072H   A   
+CONST_FLASH_LASTCARDL. . . . . . . .  N NUMB   00EBH   A   
+CONST_FLASH_STARTHIGH. . . . . . . .  N NUMB   0072H   A   
+CONST_FLASH_STARTLOW . . . . . . . .  N NUMB   0000H   A   
+CONST_FLASH_SYS0020H . . . . . . . .  N NUMB   006CH   A   
+CONST_FLASH_SYS0020L . . . . . . . .  N NUMB   0000H   A   
+CONST_FLASH_SYS0020NUMH. . . . . . .  N NUMB   006AH   A   
+CONST_FLASH_SYS0020NUML. . . . . . .  N NUMB   0000H   A   
+CONST_FLASH_SYSINFOH . . . . . . . .  N NUMB   0072H   A   
+CONST_FLASH_SYSINFOL . . . . . . . .  N NUMB   0000H   A   
+CONST_FLASH_SYSINFOLEN . . . . . . .  N NUMB   0058H   A   
+CONST_GDO2_MCSM2 . . . . . . . . . .  N NUMB   0002H   A   
+CONST_GDO2_VALUE . . . . . . . . . .  N NUMB   0046H   A   
+CONST_GSM_MAXNUM . . . . . . . . . .  N NUMB   00F0H   A   
+CONST_GSM_NUM. . . . . . . . . . . .  N NUMB   0008H   A   
+CONST_GSM_PJNUM. . . . . . . . . . .  N NUMB   0014H   A   
+CONST_HANDSECOND . . . . . . . . . .  N NUMB   0015H   A   
+CONST_HOLD_5823RX. . . . . . . . . .  N NUMB   0000H   A   
+CONST_HOLD_5823TX. . . . . . . . . .  N NUMB   0001H   A   
+CONST_INPUT_ISENABLE . . . . . . . .  N NUMB   0001H   A   
+CONST_LHX_FLAG . . . . . . . . . . .  N NUMB   0002H   A   
+CONST_MAX_RXNUM. . . . . . . . . . .  N NUMB   0005H   A   
+CONST_MCU_WKCTH. . . . . . . . . . .  N NUMB   0008H   A   
+CONST_MCU_WKCTL. . . . . . . . . . .  N NUMB   00FFH   A   
+CONST_MF_DECREMENT . . . . . . . . .  N NUMB   0002H   A   
+CONST_MF_INCREMENT . . . . . . . . .  N NUMB   0003H   A   
+CONST_MF_RC500DECREMENT. . . . . . .  N NUMB   00C0H   A   
+CONST_MF_RC500INCREMENT. . . . . . .  N NUMB   00C1H   A   
+CONST_MF_READ. . . . . . . . . . . .  N NUMB   0000H   A   
+CONST_MF_RESTOR. . . . . . . . . . .  N NUMB   0004H   A   
+CONST_MF_WRITE . . . . . . . . . . .  N NUMB   0001H   A   
+CONST_MTC_INPUT. . . . . . . . . . .  N NUMB   0001H   A   
+CONST_PPS_115200 . . . . . . . . . .  N NUMB   0018H   A   
+CONST_PPS_230000 . . . . . . . . . .  N NUMB   0096H   A   
+CONST_PPS_38400. . . . . . . . . . .  N NUMB   0013H   A   
+CONST_PPS_9600 . . . . . . . . . . .  N NUMB   0010H   A   
+CONST_PRO_OVERTIME2S . . . . . . . .  N NUMB   00FAH   A   
+CONST_RTCOVERFLOW. . . . . . . . . .  N NUMB   0090H   A   
+CONST_RTC_OFF. . . . . . . . . . . .  N NUMB   00FFH   A   
+CONST_RTC_ON . . . . . . . . . . . .  N NUMB   0055H   A   
+CONST_SOF. . . . . . . . . . . . . .  N NUMB   0000H   A   
+CONST_SOFTBYTESP . . . . . . . . . .  N NUMB   0014H   A   
+CONST_SOFTFIRSTSCANTIME. . . . . . .  N NUMB   0010H   A   
+CONST_SOFTFIRSTSCANTIMEXX. . . . . .  N NUMB   00FFH   A   
+CONST_SOFTSECOND . . . . . . . . . .  N NUMB   0070H   A   
+CONST_SSRC_FID . . . . . . . . . . .  N NUMB   000CH   A   
+CONST_STATE_5823INIER. . . . . . . .  N NUMB   0007H   A   
+CONST_STATE_5823SLEEPER. . . . . . .  N NUMB   0008H   A   
+CONST_STATE_ACCEPTOVER . . . . . . .  N NUMB   0003H   A   
+CONST_STATE_ACCEPTOVERLEN. . . . . .  N NUMB   0004H   A   
+CONST_STATE_ACTCARDINVALID . . . . .  N NUMB   0006H   A   
+CONST_STATE_ACTIVEFAIL . . . . . . .  N NUMB   0004H   A   
+A51 MACRO ASSEMBLER  CC1101                                                               10/09/2016 12:08:02 PAGE    21
+
+CONST_STATE_AUTHER . . . . . . . . .  N NUMB   0006H   A   
+CONST_STATE_BASE01ANTICOLL . . . . .  N NUMB   001DH   A   
+CONST_STATE_BASE01CONTACT. . . . . .  N NUMB   0015H   A   
+CONST_STATE_BASE01ESAMDF01 . . . . .  N NUMB   0014H   A   
+CONST_STATE_BASE01RATS . . . . . . .  N NUMB   001FH   A   
+CONST_STATE_BASE01RE . . . . . . . .  N NUMB   001CH   A   
+CONST_STATE_BASE01SEL. . . . . . . .  N NUMB   001EH   A   
+CONST_STATE_BASE02ANTICOLL . . . . .  N NUMB   0019H   A   
+CONST_STATE_BASE02CONTACT. . . . . .  N NUMB   0016H   A   
+CONST_STATE_BASE02RATS . . . . . . .  N NUMB   001BH   A   
+CONST_STATE_BASE02RE . . . . . . . .  N NUMB   0018H   A   
+CONST_STATE_BASE02SEL. . . . . . . .  N NUMB   001AH   A   
+CONST_STATE_BASEESAMDF01 . . . . . .  N NUMB   000BH   A   
+CONST_STATE_BASEN01INIT. . . . . . .  N NUMB   0013H   A   
+CONST_STATE_BASENINIT. . . . . . . .  N NUMB   000AH   A   
+CONST_STATE_CARDPREDEAL0002. . . . .  N NUMB   000DH   A   
+CONST_STATE_CARDPREDEAL0012. . . . .  N NUMB   000EH   A   
+CONST_STATE_CARDPREDEAL0015. . . . .  N NUMB   000FH   A   
+CONST_STATE_CARDPREDEAL0019. . . . .  N NUMB   0010H   A   
+CONST_STATE_CARDPREDEAL1001. . . . .  N NUMB   000CH   A   
+CONST_STATE_CARDPREDEAL3F00. . . . .  N NUMB   0011H   A   
+CONST_STATE_CARDPREDEAL81. . . . . .  N NUMB   0012H   A   
+CONST_STATE_EXMEMORYER . . . . . . .  N NUMB   0021H   A   
+CONST_STATE_EXMEMORYER02 . . . . . .  N NUMB   0022H   A   
+CONST_STATE_FALSE. . . . . . . . . .  N NUMB   00FFH   A   
+CONST_STATE_GETSECURESELFILEER . . .  N NUMB   0009H   A   
+CONST_STATE_ILLEGALACTCARD . . . . .  N NUMB   0005H   A   
+CONST_STATE_ILLEGALINPUTCARD . . . .  N NUMB   0002H   A   
+CONST_STATE_INPUTCARDINVALID . . . .  N NUMB   0003H   A   
+CONST_STATE_INPUTFAIL. . . . . . . .  N NUMB   0001H   A   
+CONST_STATE_MEMORYER . . . . . . . .  N NUMB   0020H   A   
+CONST_STATE_RSTCPUER . . . . . . . .  N NUMB   0005H   A   
+CONST_STATE_SERIALACCPET . . . . . .  N NUMB   0001H   A   
+CONST_STATE_SERIALOVERTIME . . . . .  N NUMB   0002H   A   
+CONST_STATE_TEST . . . . . . . . . .  N NUMB   0017H   A   
+CONST_STATE_TRUE . . . . . . . . . .  N NUMB   0000H   A   
+CONST_SYS_55 . . . . . . . . . . . .  N NUMB   0055H   A   
+CONST_SYS_AA . . . . . . . . . . . .  N NUMB   00AAH   A   
+CONST_SYS_OBUIDLEN . . . . . . . . .  N NUMB   0004H   A   
+CONST_SYS_POWERONTIMER . . . . . . .  N NUMB   000AH   A   
+CONST_SYS_PREFLAG. . . . . . . . . .  N NUMB   0088H   A   
+CONST_SYS_RTCOVERTIME. . . . . . . .  N NUMB   0064H   A   
+CONST_SYS_TRADECONFINE . . . . . . .  N NUMB   00FFH   A   
+CONST_TIMEER02 . . . . . . . . . . .  N NUMB   0001H   A   
+CONST_TIMEER03 . . . . . . . . . . .  N NUMB   00FEH   A   
+CONST_TIMEER04 . . . . . . . . . . .  N NUMB   0001H   A   
+CONST_VSTLIMIT . . . . . . . . . . .  N NUMB   00FFH   A   
+CONST_WHITE_H. . . . . . . . . . . .  N NUMB   0000H   A   
+CONST_WHITE_L. . . . . . . . . . . .  N NUMB   0031H   A   
+CONST_WORKSTAION_0 . . . . . . . . .  N NUMB   0000H   A   
+CONST_WORKSTAION_1 . . . . . . . . .  N NUMB   0001H   A   
+CONST_WORKSTAION_2 . . . . . . . . .  N NUMB   0002H   A   
+CONST_WORKSTAION_3 . . . . . . . . .  N NUMB   0003H   A   
+CR . . . . . . . . . . . . . . . . .  B ADDR   00D8H.6 A   
+EPCAI. . . . . . . . . . . . . . . .  B ADDR   00A8H.6 A   
+EPCA_LVD . . . . . . . . . . . . . .  B ADDR   00A8H.6 A   
+GSM_SERIALINTRX_RXRIGHT. . . . . . .  C ADDR   -----       EXT
+IE . . . . . . . . . . . . . . . . .  D ADDR   00A8H   A   
+IE2. . . . . . . . . . . . . . . . .  N NUMB   00AFH   A   
+IPH. . . . . . . . . . . . . . . . .  N NUMB   00B7H   A   
+ISP_CONTR. . . . . . . . . . . . . .  N NUMB   00C7H   A   
+P0 . . . . . . . . . . . . . . . . .  D ADDR   0080H   A   
+P1 . . . . . . . . . . . . . . . . .  D ADDR   0090H   A   
+P2 . . . . . . . . . . . . . . . . .  D ADDR   00A0H   A   
+P3 . . . . . . . . . . . . . . . . .  D ADDR   00B0H   A   
+P4 . . . . . . . . . . . . . . . . .  N NUMB   00C0H   A   
+A51 MACRO ASSEMBLER  CC1101                                                               10/09/2016 12:08:02 PAGE    22
+
+PCA_PWM0 . . . . . . . . . . . . . .  N NUMB   00F2H   A   
+PCA_PWM1 . . . . . . . . . . . . . .  N NUMB   00F3H   A   
+PCA_PWM2 . . . . . . . . . . . . . .  N NUMB   00F4H   A   
+PCA_PWM3 . . . . . . . . . . . . . .  N NUMB   00F5H   A   
+PCA_PWM4 . . . . . . . . . . . . . .  N NUMB   00F6H   A   
+PCA_PWM5 . . . . . . . . . . . . . .  N NUMB   00F7H   A   
+PIN_522_MISO . . . . . . . . . . . .  B ADDR   00C0H.1 A   
+PIN_522_MOSI . . . . . . . . . . . .  B ADDR   00C0H.6 A   
+PIN_522_RST. . . . . . . . . . . . .  B ADDR   0080H.4 A   
+PIN_522_SCLK . . . . . . . . . . . .  B ADDR   0080H.7 A   
+PIN_522_SS . . . . . . . . . . . . .  B ADDR   0080H.6 A   
+PIN_5823BK_CS. . . . . . . . . . . .  B ADDR   0090H.0 A   
+PIN_5823BK_IRQ . . . . . . . . . . .  B ADDR   0090H.2 A   
+PIN_5823BK_MISO. . . . . . . . . . .  B ADDR   0080H.0 A   
+PIN_5823BK_MOSI. . . . . . . . . . .  B ADDR   0080H.1 A   
+PIN_5823BK_SCLK. . . . . . . . . . .  B ADDR   00C0H.2 A   
+PIN_BELL_01. . . . . . . . . . . . .  B ADDR   0090H.5 A   
+PIN_BELL_02. . . . . . . . . . . . .  B ADDR   0090H.5 A   
+PIN_BK_CE. . . . . . . . . . . . . .  B ADDR   0090H.1 A   
+PIN_CARD_EXIST . . . . . . . . . . .  B ADDR   00B0H.3 A   
+PIN_ESAM_RST . . . . . . . . . . . .  B ADDR   0080H.5 A   
+PIN_ESAM_RX. . . . . . . . . . . . .  B ADDR   0080H.3 A   
+PIN_ESAM_TX. . . . . . . . . . . . .  B ADDR   0080H.3 A   
+PIN_ES_RST . . . . . . . . . . . . .  B ADDR   00A0H.6 A   
+PIN_GRE. . . . . . . . . . . . . . .  B ADDR   00C0H.4 A   
+PIN_LCD_CS . . . . . . . . . . . . .  B ADDR   0090H.5 A   
+PIN_LCD_DC . . . . . . . . . . . . .  B ADDR   0090H.5 A   
+PIN_LCD_RST. . . . . . . . . . . . .  B ADDR   0090H.5 A   
+PIN_LCD_SCL. . . . . . . . . . . . .  B ADDR   0090H.5 A   
+PIN_LCD_SDA. . . . . . . . . . . . .  B ADDR   0090H.5 A   
+PIN_OUTPUT_CLK . . . . . . . . . . .  B ADDR   00B0H.4 A   
+PIN_PWRDWN . . . . . . . . . . . . .  B ADDR   00A0H.4 A   
+PIN_PWRDWN_LCD . . . . . . . . . . .  B ADDR   0090H.5 A   
+PIN_PWR_GSM. . . . . . . . . . . . .  B ADDR   00A0H.3 A   
+PIN_PWR_LOWIO. . . . . . . . . . . .  B ADDR   0090H.5 A   
+PIN_PWR_SE . . . . . . . . . . . . .  B ADDR   0090H.5 A   
+PIN_RED. . . . . . . . . . . . . . .  B ADDR   00C0H.5 A   
+PIN_SE_IO1 . . . . . . . . . . . . .  B ADDR   00B0H.4 A   
+PIN_SOFTSERIALRX . . . . . . . . . .  B ADDR   00B0H.0 A   
+PIN_SOFTSERIALTXH. . . . . . . . . .  B ADDR   00B0H.1 A   
+PIN_SW . . . . . . . . . . . . . . .  B ADDR   0090H.5 A   
+PIN_UART2_RX . . . . . . . . . . . .  B ADDR   0090H.6 A   
+PIN_UART2_TX . . . . . . . . . . . .  B ADDR   0090H.7 A   
+PIN_UNFIX. . . . . . . . . . . . . .  B ADDR   00B0H.5 A   
+PIN_WAVE_CHANNEL1. . . . . . . . . .  B ADDR   0080H.2 A   
+PIN_WAVE_RX. . . . . . . . . . . . .  B ADDR   0080H.2 A   
+READ_BURST . . . . . . . . . . . . .  N NUMB   00C0H   A   
+REG_51_AUXR1 . . . . . . . . . . . .  N NUMB   00A2H   A   
+REG_5412AD_AUXR. . . . . . . . . . .  N NUMB   008EH   A   
+REG_5412AD_P0M0. . . . . . . . . . .  N NUMB   0094H   A   
+REG_5412AD_P0M1. . . . . . . . . . .  N NUMB   0093H   A   
+REG_5412AD_P1M0. . . . . . . . . . .  N NUMB   0092H   A   
+REG_5412AD_P1M1. . . . . . . . . . .  N NUMB   0091H   A   
+REG_5412AD_P2M0. . . . . . . . . . .  N NUMB   0096H   A   
+REG_5412AD_P2M1. . . . . . . . . . .  N NUMB   0095H   A   
+REG_5412AD_P3M0. . . . . . . . . . .  N NUMB   00B2H   A   
+REG_5412AD_P3M1. . . . . . . . . . .  N NUMB   00B1H   A   
+REG_5412AD_P4M0. . . . . . . . . . .  N NUMB   00B4H   A   
+REG_5412AD_P4M1. . . . . . . . . . .  N NUMB   00B3H   A   
+REG_5412AD_P4SW. . . . . . . . . . .  N NUMB   00BBH   A   
+REG_5412AD_SPCTL . . . . . . . . . .  N NUMB   0085H   A   
+REG_5412AD_SPDAT . . . . . . . . . .  N NUMB   0086H   A   
+REG_5412AD_SPSTAT. . . . . . . . . .  N NUMB   0084H   A   
+REG_MCU_WKCTH. . . . . . . . . . . .  N NUMB   00ABH   A   
+REG_MCU_WKCTL. . . . . . . . . . . .  N NUMB   00AAH   A   
+REG_RC522_BITFRAMINGREG. . . . . . .  N NUMB   000DH   A   
+A51 MACRO ASSEMBLER  CC1101                                                               10/09/2016 12:08:02 PAGE    23
+
+REG_RC522_COLLREG. . . . . . . . . .  N NUMB   000EH   A   
+REG_RC522_COMIENREG. . . . . . . . .  N NUMB   0002H   A   
+REG_RC522_COMIRQREG. . . . . . . . .  N NUMB   0004H   A   
+REG_RC522_COMMANDREG . . . . . . . .  N NUMB   0001H   A   
+REG_RC522_CONTROLREG . . . . . . . .  N NUMB   000CH   A   
+REG_RC522_CRCRESULTREGH. . . . . . .  N NUMB   0021H   A   
+REG_RC522_CRCRESULTREGL. . . . . . .  N NUMB   0022H   A   
+REG_RC522_CWGSPREG . . . . . . . . .  N NUMB   0028H   A   
+REG_RC522_DEMODREG . . . . . . . . .  N NUMB   0019H   A   
+REG_RC522_DIVIENREG. . . . . . . . .  N NUMB   0003H   A   
+REG_RC522_DIVIRQREG. . . . . . . . .  N NUMB   0005H   A   
+REG_RC522_ERRORREG . . . . . . . . .  N NUMB   0006H   A   
+REG_RC522_FIFODATAREG. . . . . . . .  N NUMB   0009H   A   
+REG_RC522_FIFOLEVELREG . . . . . . .  N NUMB   000AH   A   
+REG_RC522_GSNREG . . . . . . . . . .  N NUMB   0027H   A   
+REG_RC522_MIFAREREG. . . . . . . . .  N NUMB   001CH   A   
+REG_RC522_MODEREG. . . . . . . . . .  N NUMB   0011H   A   
+REG_RC522_MODGSPREG. . . . . . . . .  N NUMB   0029H   A   
+REG_RC522_MODWIDTHREG. . . . . . . .  N NUMB   0024H   A   
+REG_RC522_RC522PAGE. . . . . . . . .  N NUMB   0000H   A   
+REG_RC522_RFCFGREG . . . . . . . . .  N NUMB   0026H   A   
+REG_RC522_RFU. . . . . . . . . . . .  N NUMB   000FH   A   
+REG_RC522_RXMODEREG. . . . . . . . .  N NUMB   0013H   A   
+REG_RC522_RXSELREG . . . . . . . . .  N NUMB   0017H   A   
+REG_RC522_RXTHRESHOLDREG . . . . . .  N NUMB   0018H   A   
+REG_RC522_SERIALSPEEDREG . . . . . .  N NUMB   001FH   A   
+REG_RC522_STATUS1REG . . . . . . . .  N NUMB   0007H   A   
+REG_RC522_STATUS2REG . . . . . . . .  N NUMB   0008H   A   
+REG_RC522_TCOUNTERVALUEREGH. . . . .  N NUMB   002EH   A   
+REG_RC522_TCOUNTERVALUEREGL. . . . .  N NUMB   002FH   A   
+REG_RC522_TMODEREG . . . . . . . . .  N NUMB   002AH   A   
+REG_RC522_TPRESCALERREG. . . . . . .  N NUMB   002BH   A   
+REG_RC522_TRELOADREGH. . . . . . . .  N NUMB   002CH   A   
+REG_RC522_TRELOADREGL. . . . . . . .  N NUMB   002DH   A   
+REG_RC522_TXAUTOREG. . . . . . . . .  N NUMB   0015H   A   
+REG_RC522_TXCONTROLREG . . . . . . .  N NUMB   0014H   A   
+REG_RC522_TXMODEREG. . . . . . . . .  N NUMB   0012H   A   
+REG_RC522_TXSELREG . . . . . . . . .  N NUMB   0016H   A   
+REG_RC522_WATERLEVELREG. . . . . . .  N NUMB   000BH   A   
+REG_SYS_BRT. . . . . . . . . . . . .  N NUMB   009CH   A   
+REG_WAKECLK0 . . . . . . . . . . . .  N NUMB   008FH   A   
+REG_WAKECLK_04 . . . . . . . . . . .  B ADDR   00D8H.4 A   
+REG_WAKECLK_05 . . . . . . . . . . .  B ADDR   00D8H.5 A   
+REG_WAKE_CLK0. . . . . . . . . . . .  N NUMB   008FH   A   
+REG_WDT_CONTR. . . . . . . . . . . .  N NUMB   00C1H   A   
+RELOAD2_CONTR. . . . . . . . . . . .  N NUMB   00EAH   A   
+S2BUF. . . . . . . . . . . . . . . .  N NUMB   009BH   A   
+S2CON. . . . . . . . . . . . . . . .  N NUMB   009AH   A   
+STR_CC1101_INPUT . . . . . . . . . .  C ADDR   0000H   R   SEG=?CO?CC1101?FLASHSTR
+TI_CCXXX0_ADDR . . . . . . . . . . .  N NUMB   0009H   A   
+TI_CCXXX0_AGCCTRL0 . . . . . . . . .  N NUMB   001DH   A   
+TI_CCXXX0_AGCCTRL1 . . . . . . . . .  N NUMB   001CH   A   
+TI_CCXXX0_AGCCTRL2 . . . . . . . . .  N NUMB   001BH   A   
+TI_CCXXX0_AGCTEST. . . . . . . . . .  N NUMB   002BH   A   
+TI_CCXXX0_BSCFG. . . . . . . . . . .  N NUMB   001AH   A   
+TI_CCXXX0_CHANNR . . . . . . . . . .  N NUMB   000AH   A   
+TI_CCXXX0_DEVIATN. . . . . . . . . .  N NUMB   0015H   A   
+TI_CCXXX0_FIFOTHR. . . . . . . . . .  N NUMB   0003H   A   
+TI_CCXXX0_FOCCFG . . . . . . . . . .  N NUMB   0019H   A   
+TI_CCXXX0_FREND0 . . . . . . . . . .  N NUMB   0022H   A   
+TI_CCXXX0_FREND1 . . . . . . . . . .  N NUMB   0021H   A   
+TI_CCXXX0_FREQ0. . . . . . . . . . .  N NUMB   000FH   A   
+TI_CCXXX0_FREQ1. . . . . . . . . . .  N NUMB   000EH   A   
+TI_CCXXX0_FREQ2. . . . . . . . . . .  N NUMB   000DH   A   
+TI_CCXXX0_FREQEST. . . . . . . . . .  N NUMB   0032H   A   
+TI_CCXXX0_FSCAL0 . . . . . . . . . .  N NUMB   0026H   A   
+A51 MACRO ASSEMBLER  CC1101                                                               10/09/2016 12:08:02 PAGE    24
+
+TI_CCXXX0_FSCAL1 . . . . . . . . . .  N NUMB   0025H   A   
+TI_CCXXX0_FSCAL2 . . . . . . . . . .  N NUMB   0024H   A   
+TI_CCXXX0_FSCAL3 . . . . . . . . . .  N NUMB   0023H   A   
+TI_CCXXX0_FSCTRL0. . . . . . . . . .  N NUMB   000CH   A   
+TI_CCXXX0_FSCTRL1. . . . . . . . . .  N NUMB   000BH   A   
+TI_CCXXX0_FSTEST . . . . . . . . . .  N NUMB   0029H   A   
+TI_CCXXX0_IOCFG0 . . . . . . . . . .  N NUMB   0002H   A   
+TI_CCXXX0_IOCFG1 . . . . . . . . . .  N NUMB   0001H   A   
+TI_CCXXX0_IOCFG2 . . . . . . . . . .  N NUMB   0000H   A   
+TI_CCXXX0_LQI. . . . . . . . . . . .  N NUMB   0033H   A   
+TI_CCXXX0_MARCSTATE. . . . . . . . .  N NUMB   0035H   A   
+TI_CCXXX0_MCSM0. . . . . . . . . . .  N NUMB   0018H   A   
+TI_CCXXX0_MCSM1. . . . . . . . . . .  N NUMB   0017H   A   
+TI_CCXXX0_MCSM2. . . . . . . . . . .  N NUMB   0016H   A   
+TI_CCXXX0_MDMCFG0. . . . . . . . . .  N NUMB   0014H   A   
+TI_CCXXX0_MDMCFG1. . . . . . . . . .  N NUMB   0013H   A   
+TI_CCXXX0_MDMCFG2. . . . . . . . . .  N NUMB   0012H   A   
+TI_CCXXX0_MDMCFG3. . . . . . . . . .  N NUMB   0011H   A   
+TI_CCXXX0_MDMCFG4. . . . . . . . . .  N NUMB   0010H   A   
+TI_CCXXX0_NUM_RXBYTES. . . . . . . .  N NUMB   007FH   A   
+TI_CCXXX0_PARTNUM. . . . . . . . . .  N NUMB   0030H   A   
+TI_CCXXX0_PATABLE. . . . . . . . . .  N NUMB   003EH   A   
+TI_CCXXX0_PKTCTRL0 . . . . . . . . .  N NUMB   0008H   A   
+TI_CCXXX0_PKTCTRL1 . . . . . . . . .  N NUMB   0007H   A   
+TI_CCXXX0_PKTLEN . . . . . . . . . .  N NUMB   0006H   A   
+TI_CCXXX0_PKTSTATUS. . . . . . . . .  N NUMB   0038H   A   
+TI_CCXXX0_PTEST. . . . . . . . . . .  N NUMB   002AH   A   
+TI_CCXXX0_RCCTRL0. . . . . . . . . .  N NUMB   0028H   A   
+TI_CCXXX0_RCCTRL1. . . . . . . . . .  N NUMB   0027H   A   
+TI_CCXXX0_RSSI . . . . . . . . . . .  N NUMB   0034H   A   
+TI_CCXXX0_RXBYTES. . . . . . . . . .  N NUMB   003BH   A   
+TI_CCXXX0_RXFIFO . . . . . . . . . .  N NUMB   003FH   A   
+TI_CCXXX0_SAFC . . . . . . . . . . .  N NUMB   0037H   A   
+TI_CCXXX0_SCAL . . . . . . . . . . .  N NUMB   0033H   A   
+TI_CCXXX0_SFRX . . . . . . . . . . .  N NUMB   003AH   A   
+TI_CCXXX0_SFTX . . . . . . . . . . .  N NUMB   003BH   A   
+TI_CCXXX0_SIDLE. . . . . . . . . . .  N NUMB   0036H   A   
+TI_CCXXX0_SNOP . . . . . . . . . . .  N NUMB   003DH   A   
+TI_CCXXX0_SPWD . . . . . . . . . . .  N NUMB   0039H   A   
+TI_CCXXX0_SRES . . . . . . . . . . .  N NUMB   0030H   A   
+TI_CCXXX0_SRX. . . . . . . . . . . .  N NUMB   0034H   A   
+TI_CCXXX0_STX. . . . . . . . . . . .  N NUMB   0035H   A   
+TI_CCXXX0_SWOR . . . . . . . . . . .  N NUMB   0038H   A   
+TI_CCXXX0_SWORRST. . . . . . . . . .  N NUMB   003CH   A   
+TI_CCXXX0_SXOFF. . . . . . . . . . .  N NUMB   0032H   A   
+TI_CCXXX0_SYNC0. . . . . . . . . . .  N NUMB   0005H   A   
+TI_CCXXX0_SYNC1. . . . . . . . . . .  N NUMB   0004H   A   
+TI_CCXXX0_TEST0. . . . . . . . . . .  N NUMB   002EH   A   
+TI_CCXXX0_TEST1. . . . . . . . . . .  N NUMB   002DH   A   
+TI_CCXXX0_TEST2. . . . . . . . . . .  N NUMB   002CH   A   
+TI_CCXXX0_TXBYTES. . . . . . . . . .  N NUMB   003AH   A   
+TI_CCXXX0_TXFIFO . . . . . . . . . .  N NUMB   003FH   A   
+TI_CCXXX0_VCO_VC_DAC . . . . . . . .  N NUMB   0039H   A   
+TI_CCXXX0_VERSION. . . . . . . . . .  N NUMB   0031H   A   
+TI_CCXXX0_WORCTRL. . . . . . . . . .  N NUMB   0020H   A   
+TI_CCXXX0_WOREVT0. . . . . . . . . .  N NUMB   001FH   A   
+TI_CCXXX0_WOREVT1. . . . . . . . . .  N NUMB   001EH   A   
+TI_CCXXX0_WORTIME0 . . . . . . . . .  N NUMB   0037H   A   
+TI_CCXXX0_WORTIME1 . . . . . . . . .  N NUMB   0036H   A   
+WAKE_CLKO. . . . . . . . . . . . . .  N NUMB   008FH   A   
+WKO_BK . . . . . . . . . . . . . . .  B ADDR   00B0H.2 A   
+XDATA_433RXNUM . . . . . . . . . . .  X ADDR   -----       EXT
+XDATA_TXBUF. . . . . . . . . . . . .  X ADDR   -----       EXT
+_FUN_CC1101_CZ . . . . . . . . . . .  C ADDR   0000H   R   SEG=?PR?CC1101?MATER
+_FUN_CC1101_ERR. . . . . . . . . . .  C ADDR   0008H   R   SEG=?PR?CC1101?MATER
+_FUN_CC1101_ERR02. . . . . . . . . .  C ADDR   000CH   R   SEG=?PR?CC1101?MATER
+A51 MACRO ASSEMBLER  CC1101                                                               10/09/2016 12:08:02 PAGE    25
+
+_FUN_CC1101_IDLE . . . . . . . . . .  C ADDR   000EH   R   SEG=?PR?CC1101?MATER
+_FUN_CC1101_INIT . . . . . . . . . .  C ADDR   0003H   R   SEG=?PR?CC1101?MATER
+_FUN_CC1101_RESET. . . . . . . . . .  C ADDR   0004H   R   SEG=?PR?CC1101?MATER
+_FUN_CC1101_RVOFF. . . . . . . . . .  C ADDR   0007H   R   SEG=?PR?CC1101?MATER
+_FUN_CC1101_RVON . . . . . . . . . .  C ADDR   0006H   R   SEG=?PR?CC1101?MATER
+_FUN_CC1101_RVWR . . . . . . . . . .  C ADDR   000BH   R   SEG=?PR?CC1101?MATER
+_FUN_CC1101_RVWR02 . . . . . . . . .  C ADDR   000DH   R   SEG=?PR?CC1101?MATER
+_FUN_CC1101_RX . . . . . . . . . . .  C ADDR   0010H   R   SEG=?PR?CC1101?MATER
+_FUN_CC1101_SETWAKEUPTIME. . . . . .  C ADDR   0005H   R   SEG=?PR?CC1101?MATER
+_FUN_CC1101_SPIOSINGLESOFT . . . . .  C ADDR   0002H   R   SEG=?PR?CC1101?MATER
+_FUN_CC1101_SPIOSOFT . . . . . . . .  C ADDR   0001H   R   SEG=?PR?CC1101?MATER
+_FUN_CC1101_SPIOSOFTRXCC1101RXCC1101  C ADDR   0014H   R   SEG=?PR?CC1101?MATER
+_FUN_CC1101_WAKEUP . . . . . . . . .  C ADDR   000FH   R   SEG=?PR?CC1101?MATER
+_FUN_CONTACTISSUE_INIT02 . . . . . .  C ADDR   -----       EXT
+_FUN_LIB_DELAY . . . . . . . . . . .  C ADDR   -----       EXT
+_FUN_TEST_DISPLAY. . . . . . . . . .  C ADDR   -----       EXT
+_FUN_TEST_UARTDISPLAY. . . . . . . .  C ADDR   -----       EXT
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)

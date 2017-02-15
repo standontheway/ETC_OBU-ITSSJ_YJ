@@ -1,0 +1,25 @@
+A51 MACRO ASSEMBLER  LCD                                                                  09/23/2016 17:04:50 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.00d
+OBJECT MODULE PLACED IN LCD.OBJ
+ASSEMBLER INVOKED BY: C:\Keil\C51\BIN\A51.EXE LCD.ASM SET(SMALL) DEBUG EP
+
+LOC  OBJ            LINE     SOURCE
+
+                       1     
+*** WARNING #A41 IN 1 (LCD.ASM, LINE 1): MISSING 'END' STATEMENT
+A51 MACRO ASSEMBLER  LCD                                                                  09/23/2016 17:04:50 PAGE     2
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E             T Y P E  V A L U E   ATTRIBUTES
+
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  1 WARNING(S), 0 ERROR(S)

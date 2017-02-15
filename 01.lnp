@@ -1,0 +1,18 @@
+"OBUMAIN.obj",
+"C_Issue.obj",
+"CardAPP.obj",
+"CC1101.obj",
+"Contact.obj",
+"DSRC.obj",
+"flash.obj",
+"GSM.obj",
+"HDLC.obj",
+"LIB.obj",
+"MFCard.obj",
+"NContact.obj",
+"ProCard.obj",
+"SERIAL.obj",
+"TEST.obj",
+"TFT_LCD.obj" 
+TO "01" 
+RAMSIZE(256) 

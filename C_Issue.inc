@@ -1,0 +1,43 @@
+;---段定义---
+?pr?ContactIssue?Mater	SEGMENT CODE
+
+;--- 输入 ---
+EXTRN	BIT(BIT_BUFADDR)
+EXTRN	BIT(BIT_VERIFY)
+;EXTRN	BIT(BIT_ContactIssue)			;发行开始标记=0，没有接收发行信息，接收到发行信息
+EXTRN	BIT(BIT_SERIALOVERTIMERX)		
+EXTRN	BIT(BIT_BST)				;=1表示收到过bst,=0表示没有收到过bst		
+
+EXTRN	DATA(DATA_RXBUF)
+
+EXTRN	XDATA(XDATA_IssueRSCTL)			;有线发行序号
+EXTRN	XDATA(XDATA_IssueCMD)			;有线发行命令字
+EXTRN	XDATA(XDATA_TXBUF)
+
+EXTRN	CODE(_FUN_LIB_GetBCC)
+EXTRN	CODE(_FUN_Contact_CHANGEBAUD)
+EXTRN	CODE(_FUN_SERIAL_RXHARD)
+EXTRN	CODE(_FUN_SERIAL_TXHARD)
+EXTRN	CODE(_FUN_LIB_DATATOXDATA)
+
+EXTRN	CODE(_FUN_SERIAL_TXSOFT)
+;--- 输出 --- 
+PUBLIC	_FUN_ContactIssue_INIT			;	发行初始化
+PUBLIC	_FUN_ContactIssue_Release
+PUBLIC	_FUN_ContactIssue_RXBST			;	发行_接收BST
+PUBLIC	_FUN_ContactIssue_RX			;	接收发行信息（从PC）
+PUBLIC	_FUN_ContactIssue_TX			;	发送发行回应信息（到PC）		 	发送发行回应信息（到PC）
+public	_FUN_ContactIssue_RX02
+PUBLIC	_FUN_ContactIssue_INIT02
+PUBLIC	_FUN_ContactIssue_INITDown
+PUBLIC	_FUN_ContactIssue_RX03
+public	ContactIssue_RX02_Deal
+
+;--- TEST ---
+EXTRN	CODE(_FUN_TEST_DISPLAY)
+;EXTRN	CODE(_FUN_SERIAL_InitUART2)
+EXTRN	CODE(_FUN_SERIAL_RXHARD02)
+EXTRN	CODE(_FUN_SERIAL_TXHARD02)
+EXTRN	CODE(_FUN_SERIAL_INIT)
+
+

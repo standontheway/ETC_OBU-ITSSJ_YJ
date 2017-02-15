@@ -1,0 +1,69 @@
+### uVision2 Project, (C) Keil Software
+### Do not modify !
+
+ cExt (*.c)
+ aExt (*.s*; *.src; *.a*)
+ oExt (*.obj)
+ lExt (*.lib)
+ tExt (*.txt; *.h; *.inc)
+ pExt (*.plm)
+ CppX (*.cpp)
+ DaveTm { 0,0,0,0,0,0,0,0 }
+
+Target (OBU_Pro), 0x0000 // Tools: 'MCS-51'
+GRPOPT 1,(Main),0,0,0
+GRPOPT 2,(WJ),0,0,0
+GRPOPT 3,(Head),0,0,0
+
+OPTFFF 1,1,2,603979778,0,193,206,0,<.\OBUMAIN.ASM><OBUMAIN.ASM> { 44,0,0,0,2,0,0,0,3,0,0,0,255,255,255,255,255,255,255,255,248,255,255,255,226,255,255,255,25,0,0,0,25,0,0,0,226,2,0,0,193,1,0,0 }
+OPTFFF 2,2,2,0,0,0,0,0,<.\C_Issue.asm><C_Issue.asm> 
+OPTFFF 2,3,2,0,0,0,0,0,<.\CardAPP.ASM><CardAPP.ASM> 
+OPTFFF 2,4,2,0,0,0,0,0,<.\CC1101.asm><CC1101.asm> 
+OPTFFF 2,5,2,0,0,0,0,0,<.\Contact.asm><Contact.asm> 
+OPTFFF 2,6,2,0,0,0,0,0,<.\DSRC.ASM><DSRC.ASM> 
+OPTFFF 2,7,2,0,0,0,0,0,<.\flash.ASM><flash.ASM> 
+OPTFFF 2,8,2,0,0,0,0,0,<.\GSM.asm><GSM.asm> 
+OPTFFF 2,9,2,0,0,0,0,0,<.\HDLC.ASM><HDLC.ASM> 
+OPTFFF 2,10,2,0,0,0,0,0,<.\LIB.ASM><LIB.ASM> 
+OPTFFF 2,11,2,0,0,0,0,0,<.\MFCard.asm><MFCard.asm> 
+OPTFFF 2,12,2,0,0,0,0,0,<.\NContact.asm><NContact.asm> 
+OPTFFF 2,13,2,0,0,0,0,0,<.\ProCard.asm><ProCard.asm> 
+OPTFFF 2,14,2,0,0,0,0,0,<.\SERIAL.ASM><SERIAL.ASM> 
+OPTFFF 2,15,2,0,0,0,0,0,<.\TEST.ASM><TEST.ASM> 
+OPTFFF 2,16,2,0,0,0,0,0,<.\TFT_LCD.asm><TFT_LCD.asm> 
+OPTFFF 3,17,5,0,0,0,0,0,<.\C_Issue.inc><C_Issue.inc> 
+OPTFFF 3,18,5,0,0,0,0,0,<.\CardAPP.inc><CardAPP.inc> 
+OPTFFF 3,19,5,0,0,0,0,0,<.\CC1101.inc><CC1101.inc> 
+OPTFFF 3,20,5,0,0,0,0,0,<.\COMMON.INC><COMMON.INC> 
+OPTFFF 3,21,5,0,0,0,0,0,<.\Contact.inc><Contact.inc> 
+OPTFFF 3,22,5,0,0,0,0,0,<.\DSRC.INC><DSRC.INC> 
+OPTFFF 3,23,5,0,0,0,0,0,<.\GSM.inc><GSM.inc> 
+OPTFFF 3,24,5,0,0,0,0,0,<.\HDLC.INC><HDLC.INC> 
+OPTFFF 3,25,5,0,0,0,0,0,<.\LCD.INC><LCD.INC> 
+OPTFFF 3,26,5,0,0,0,0,0,<.\LIB.INC><LIB.INC> 
+OPTFFF 3,27,5,0,0,0,0,0,<.\MFCard.inc><MFCard.inc> 
+OPTFFF 3,28,5,0,0,0,0,0,<.\NContact.INC><NContact.INC> 
+OPTFFF 3,29,5,0,0,0,0,0,<.\NotContactCard.inc><NotContactCard.inc> 
+OPTFFF 3,30,5,0,0,0,0,0,<.\OBUMAIN.INC><OBUMAIN.INC> 
+OPTFFF 3,31,5,0,0,0,0,0,<.\ProCard.inc><ProCard.inc> 
+OPTFFF 3,32,5,0,0,0,0,0,<.\SERIAL.INC><SERIAL.INC> 
+OPTFFF 3,33,5,0,0,0,0,0,<.\TEST.INC><TEST.INC> 
+
+
+TARGOPT 1, (OBU_Pro)
+ CLK51=45000000
+  OPTTT 1,1,1,0
+  OPTHX 0,65535,0,0,0
+  OPTLX 120,65,8,<.\>
+  OPTOX 16
+  OPTLT 1,1,1,0,1,1,0,1,0,0,0,0
+  OPTXL 1,1,1,1,1,1,1,0,0
+  OPTFL 1,0,1
+  OPTAX 255
+  OPTDL (S8051.DLL)()(DP51.DLL)(-pDR8051)(S8051.DLL)()(TP51.DLL)(-p51)
+  OPTDBG 48125,-1,()()()()()()()()()() ()()()()
+  OPTDF 0x40000002
+  OPTLE <>
+  OPTLC <>
+EndOpt
+
