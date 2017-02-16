@@ -8,6 +8,7 @@ Group (Head)
 Group (ASM)
 
 File 1,2,<.\OBUMAIN.ASM><OBUMAIN.ASM> 0x0 
+File 1,5,<.\readme><readme> 0x0 
 File 2,5,<.\C_Issue.inc><C_Issue.inc> 0x0 
 File 2,5,<.\CardAPP.inc><CardAPP.inc> 0x0 
 File 2,5,<.\CC1101.inc><CC1101.inc> 0x0 

@@ -1,0 +1,9 @@
+diff a/MFCard.asm b/MFCard.asm	(rejected hunks)
+@@ -0,6 +0,7 @@
+ ;_FUN_MF_Rc500Read		---	����
+ ;_FUN_MF_Rc500Write		---	д��
+ ;_FUN_MF_Rc500Decrement		---	�ۿ�
++;_FUN_MF_Rc500Transfer		---	����
+ ;_FUN_MF_RC500Restore		---	���ݿ�
+ ;_FUN_MF_Channel	---	MF����֤���ϲ���
+ 
